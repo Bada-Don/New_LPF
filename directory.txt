@@ -1,0 +1,69 @@
+📁 NEW_LPF
+  ├── 📁 .dfx
+  ├── 📁 node_modules
+  ├── 📁 src
+  │   ├── 📁 declarations
+  │   │   ├── 📄 index.js
+  │   ├── 📁 New_LPF_backend
+  │   │   ├── 📄 index.ts
+  │   │   ├── 📄 index.js
+  │   │   ├── 📄 New_LPF_backend.did
+  │   │   ├── 📄 New_LPF_backend.did.ts
+  │   │   ├── 📄 New_LPF_backend.did.js
+  │   ├── 📁 New_LPF_frontend
+  │   │   ├── 📁 dist
+  │   │   ├── 📁 node_modules
+  │   │   ├── 📁 public
+  │   │   ├── 📁 src
+  │   │   │   ├── 📁 assets
+  │   │   │   │   ├── 📄 paw-logo.png
+  │   │   │   ├── 📁 components
+  │   │   │   │   ├── 📄 DebugPanel.jsx (U)
+  │   │   │   ├── 📁 context
+  │   │   │   │   ├── 📄 BackendContext.jsx (U)
+  │   │   │   ├── 📁 declarations
+  │   │   │   │   ├── 📄 index.js
+  │   │   │   ├── 📁 hooks
+  │   │   │   │   ├── 📄 useBackend.js (M)
+  │   │   │   ├── 📁 pages
+  │   │   │   │   ├── 📄 AuthPage.css
+  │   │   │   │   ├── 📄 AuthPage.jsx (M)
+  │   │   │   │   ├── 📄 ConnectionTest.jsx (U)
+  │   │   │   │   ├── 📄 HomePage.css
+  │   │   │   │   ├── 📄 HomePage.jsx (M)
+  │   │   │   │   ├── 📄 LostPetForm.css
+  │   │   │   │   ├── 📄 LostPetForm.jsx (M)
+  │   │   │   │   ├── 📄 MessagesPage.css
+  │   │   │   │   ├── 📄 MessagesPage.jsx (M)
+  │   │   │   │   ├── 📄 WalletPage.css
+  │   │   │   │   ├── 📄 WalletPage.jsx (M)
+  │   │   │   ├── 📁 utils
+  │   │   │   │   ├── 📄 actor.js (M)
+  │   │   │   ├── 📄 App.jsx (M)
+  │   │   │   ├── 📄 index.css
+  │   │   │   ├── 📄 main.jsx
+  │   │   ├── 📄 index.ts
+  │   │   ├── 📄 index.js
+  │   │   ├── 📄 New_LPF_frontend.did
+  │   │   ├── 📄 New_LPF_frontend.did.ts
+  │   │   ├── 📄 New_LPF_frontend.did.js
+  │   │   ├── 📄 vite-env.d.ts
+  │   │   ├── 📄 index.html
+  │   │   ├── 📄 package.json
+  │   │   ├── 📄 tsconfig.json
+  │   │   ├── 📄 vite.config.js
+  │   ├── 📁 New_LPF_backend
+  │   │   ├── 📄 conversations.mo
+  │   │   ├── 📄 main.mo (M)
+  │   │   ├── 📄 message.mo
+  │   │   ├── 📄 post.mo
+  │   │   ├── 📄 users.mo
+  ├── 📄 .env
+  ├── 📄 .gitignore
+  ├── 📄 dfx.json
+  ├── 📄 package-lock.json
+  ├── 📄 package.json
+  ├── 📄 README.md
+  ├── 📄 rough.cpp
+  ├── 📄 rough.txt
+  ├── 📄 tsconfig.json
