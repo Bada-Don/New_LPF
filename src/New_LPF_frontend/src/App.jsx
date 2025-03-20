@@ -1,30 +1,23 @@
-import { useState } from 'react';
-import { New_LPF_backend } from 'declarations/New_LPF_backend';
+// app.jsx
+import React from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import AuthPage from './pages/AuthPage';
+import LostPetForm from './pages/LostPetForm';
+import MessagesPage from './pages/MessagesPage';
+import WalletPage from './pages/WalletPage';
 
 function App() {
-  const [greeting, setGreeting] = useState('');
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    const name = event.target.elements.name.value;
-    New_LPF_backend.greet(name).then((greeting) => {
-      setGreeting(greeting);
-    });
-    return false;
-  }
-
   return (
-    <main>
-      <img src="/logo2.svg" alt="DFINITY logo" />
-      <br />
-      <br />
-      <form action="#" onSubmit={handleSubmit}>
-        <label htmlFor="name">Enter your name: &nbsp;</label>
-        <input id="name" alt="Name" type="text" />
-        <button type="submit">Click Me!</button>
-      </form>
-      <section id="greeting">{greeting}</section>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/petform" element={<LostPetForm />} />
+        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

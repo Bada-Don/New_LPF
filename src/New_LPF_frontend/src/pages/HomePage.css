@@ -1,0 +1,478 @@
+/* HomePage.css */
+:root {
+    --primary-color: #c355f5;
+    --primary-dark: #a02fe0;
+    --accent-color: #ff4081;
+    --dark-bg: #1a1a1a;
+    --darker-bg: #121212;
+    --light-text: #ffffff;
+    --gray-text: #b3b3b3;
+    --border-color: #333333;
+    --card-bg: #242424;
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: var(--darker-bg);
+    color: var(--light-text);
+}
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Navbar */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--dark-bg);
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo img {
+    height: 40px;
+}
+
+.logo span {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 1rem;
+}
+
+.cta-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1.2rem;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cta-button:hover {
+    background-color: var(--primary-dark);
+}
+
+.login-button, .account-button, .inbox-button {
+    background-color: transparent;
+    color: var(--light-text);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1.2rem;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.login-button:hover, .account-button:hover, .inbox-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Announcement Banner */
+.announcement-banner {
+    background-color: rgba(195, 85, 245, 0.15);
+    padding: 0.75rem 2rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(195, 85, 245, 0.3);
+}
+
+.announcement-banner p {
+    color: var(--light-text);
+    font-size: 0.9rem;
+}
+
+.announcement-banner span {
+    color: var(--primary-color);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Hero Section */
+.hero-section {
+    display: flex;
+    padding: 4rem 2rem;
+    background-color: var(--dark-bg);
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+}
+
+.hero-content {
+    max-width: 600px;
+}
+
+.hero-content h1 {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(45deg, var(--primary-color), #f5c355);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-content p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--gray-text);
+    margin-bottom: 2rem;
+}
+
+.hero-image {
+    max-width: 500px;
+}
+
+.hero-image img {
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Pet Listings */
+.pet-listings {
+    padding: 3rem 2rem;
+}
+
+.pet-listings h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: var(--primary-color);
+}
+
+.filters {
+    margin-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--light-text);
+    font-size: 1rem;
+}
+
+.filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    color: var(--gray-text);
+}
+
+.filter-group select {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--light-text);
+}
+
+/* Pet Cards */
+.pet-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.pet-card {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.pet-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.pet-card.lost {
+    border-top: 3px solid var(--warning-color);
+}
+
+.pet-card.found {
+    border-top: 3px solid var(--success-color);
+}
+
+.status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: white;
+}
+
+.pet-card.lost .status-badge {
+    background-color: var(--warning-color);
+}
+
+.pet-card.found .status-badge {
+    background-color: var(--success-color);
+}
+
+.pet-image {
+    height: 200px;
+    overflow: hidden;
+}
+
+.pet-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.pet-card:hover .pet-image img {
+    transform: scale(1.05);
+}
+
+.pet-details {
+    padding: 1.5rem;
+}
+
+.pet-details h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--light-text);
+}
+
+.pet-type {
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.pet-location {
+    color: var(--gray-text);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.pet-description {
+    color: var(--light-text);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.pet-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    color: var(--gray-text);
+    font-size: 0.85rem;
+}
+
+.pet-incentive {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+.contact-button {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.contact-button:hover {
+    background-color: var(--primary-dark);
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    background-color: var(--dark-bg);
+    padding: 3rem 2rem 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.footer-content {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.footer-logo img {
+    height: 30px;
+}
+
+.footer-logo span {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3rem;
+}
+
+.link-group h4 {
+    color: var(--light-text);
+    margin-bottom: 1rem;
+}
+
+.link-group a {
+    display: block;
+    color: var(--gray-text);
+    text-decoration: none;
+    margin-bottom: 0.5rem;
+    transition: color 0.2s;
+}
+
+.link-group a:hover {
+    color: var(--primary-color);
+}
+
+.copyright {
+    text-align: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--gray-text);
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-section {
+        flex-direction: column;
+        text-align: center;
+        padding: 2rem 1rem;
+    }
+
+    .hero-content h1 {
+        font-size: 2.2rem;
+    }
+
+    .nav-buttons .cta-button {
+        display: none;
+    }
+
+    .pet-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-options {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group {
+        justify-content: space-between;
+    }
+
+    .footer-content {
+        flex-direction: column;
+    }
+
+    .footer-links {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+}
+
+/* Animation for cards */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.pet-card {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.pet-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.pet-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.pet-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--darker-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}

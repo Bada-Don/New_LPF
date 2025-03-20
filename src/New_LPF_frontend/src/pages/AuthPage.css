@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+}
+
+.auth-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar styles */
+.auth-sidebar {
+    width: 250px;
+    background-color: #1e1e1e;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+}
+
+.logo-container h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #e040fb; /* Purple color from Angular logo */
+}
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.menu-item:hover {
+    background-color: rgba(224, 64, 251, 0.1);
+}
+
+.menu-item i {
+    margin-right: 10px;
+    color: #e040fb;
+}
+
+/* Main content styles */
+.auth-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    position: relative;
+}
+
+.notification-banner {
+    width: 100%;
+    max-width: 800px;
+    background-color: rgba(224, 64, 251, 0.1);
+    border: 1px solid rgba(224, 64, 251, 0.3);
+    border-radius: 4px;
+    padding: 10px 20px;
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.notification-banner p {
+    color: #e040fb;
+    font-size: 14px;
+}
+
+.auth-form-container {
+    width: 100%;
+    max-width: 450px;
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.auth-form-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-form-header h2 {
+    font-size: 28px;
+    margin-bottom: 10px;
+    color: #ffffff;
+}
+
+.auth-form-header p {
+    color: #a0a0a0;
+    font-size: 16px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #cccccc;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 4px;
+    background-color: #2c2c2c;
+    border: 1px solid #444444;
+    color: #ffffff;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    border-color: #e040fb;
+    outline: none;
+}
+
+.forgot-password {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.forgot-password a {
+    color: #e040fb;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.auth-button {
+    width: 100%;
+    padding: 12px;
+    background-color: #e040fb;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.auth-button:hover {
+    background-color: #c639e0;
+}
+
+.auth-switch {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.auth-switch p {
+    color: #a0a0a0;
+    font-size: 14px;
+}
+
+.switch-button {
+    background: none;
+    border: none;
+    color: #e040fb;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.auth-divider {
+    position: relative;
+    text-align: center;
+    margin: 25px 0;
+}
+
+.auth-divider::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #444444;
+}
+
+.auth-divider span {
+    position: relative;
+    background-color: #1e1e1e;
+    padding: 0 10px;
+    color: #a0a0a0;
+    font-size: 14px;
+}
+
+.social-auth {
+    display: flex;
+    gap: 15px;
+}
+
+.social-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #444444;
+    background-color: #2c2c2c;
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.social-button i {
+    margin-right: 8px;
+}
+
+.social-button.google:hover {
+    background-color: #ea4335;
+    border-color: #ea4335;
+}
+
+.social-button.facebook:hover {
+    background-color: #1877f2;
+    border-color: #1877f2;
+}
