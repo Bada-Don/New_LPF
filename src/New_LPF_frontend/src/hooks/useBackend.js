@@ -1,65 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getBackendActor } from '../utils/actor';
-
-export const useBackend = () => {
-  const [actor, setActor] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const initActor = async () => {
-      try {
-        const backendActor = await getBackendActor();
-        setActor(backendActor);
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Failed to initialize actor:", err);
-        setError(err);
-        setIsLoading(false);
-      }
-    };
-
-    initActor();
-  }, []);
-
-  return { actor, isLoading, error };
-};
+import { useState, useCallback } from 'react';
+import { useBackend } from '../context/BackendContext';
 
 // User-related hooks
 export const useAuth = () => {
-  const { actor, isLoading: actorLoading } = useBackend();
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { actor, user, isLoading, isAuthenticated, refreshUser } = useBackend();
+  const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const getUser = useCallback(async () => {
-    if (!actor) return;
-    
-    try {
-      setIsLoading(true);
-      const result = await actor.getUser();
-      if ('ok' in result) {
-        setUser(result.ok);
-      } else {
-        // User not found or not logged in
-        setUser(null);
-      }
-    } catch (err) {
-      console.error("Failed to get user:", err);
-      setError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [actor]);
-
   const createUser = useCallback(async (username, email, password) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
-      setIsLoading(true);
+      setAuthLoading(true);
       const result = await actor.createUser(username, email, password);
       if ('ok' in result) {
-        await getUser(); // Refresh user data after creation
+        await refreshUser(); // Refresh user data after creation
         return { success: true, id: result.ok };
       } else {
         return { success: false, error: result.err };
@@ -69,22 +24,22 @@ export const useAuth = () => {
       setError(err);
       return { success: false, error: err };
     } finally {
-      setIsLoading(false);
+      setAuthLoading(false);
     }
-  }, [actor, getUser]);
+  }, [actor, refreshUser]);
 
   const updateUser = useCallback(async (updates) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
-      setIsLoading(true);
+      setAuthLoading(true);
       const result = await actor.updateUser(
         updates.username || null, 
         updates.email || null, 
         updates.password || null
       );
       if ('ok' in result) {
-        await getUser(); // Refresh user data after update
+        await refreshUser(); // Refresh user data after update
         return { success: true };
       } else {
         return { success: false, error: result.err };
@@ -94,33 +49,26 @@ export const useAuth = () => {
       setError(err);
       return { success: false, error: err };
     } finally {
-      setIsLoading(false);
+      setAuthLoading(false);
     }
-  }, [actor, getUser]);
-
-  // Load user data when actor is ready
-  useEffect(() => {
-    if (!actorLoading && actor) {
-      getUser();
-    }
-  }, [actor, actorLoading, getUser]);
+  }, [actor, refreshUser]);
 
   return { 
     user, 
-    isLoading: isLoading || actorLoading, 
+    isLoading: isLoading || authLoading, 
     error, 
     createUser, 
     updateUser,
-    refreshUser: getUser,
-    isAuthenticated: !!user
+    refreshUser,
+    isAuthenticated
   };
 };
 
 // Post-related hooks
 export const usePosts = () => {
-  const { actor, isLoading: actorLoading } = useBackend();
+  const { actor, isLoading: contextLoading } = useBackend();
   const [posts, setPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const getAllPosts = useCallback(async () => {
@@ -168,8 +116,27 @@ export const usePosts = () => {
     }
   }, [actor]);
 
-  const createPost = useCallback(async (postData) => {
+  const getUserPosts = useCallback(async () => {
     if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getUserPosts();
+      if ('ok' in result) {
+        setPosts(result.ok);
+      } else {
+        setPosts([]);
+      }
+    } catch (err) {
+      console.error("Failed to get user posts:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const createPost = useCallback(async (postData) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
       setIsLoading(true);
@@ -201,33 +168,49 @@ export const usePosts = () => {
     }
   }, [actor, getAllPosts]);
 
-  // Load posts when actor is ready
-  useEffect(() => {
-    if (!actorLoading && actor) {
-      getAllPosts();
+  const updatePostStatus = useCallback(async (postId, status) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.updatePostStatus(postId, status);
+      if ('ok' in result) {
+        // Refresh posts after update
+        await getAllPosts();
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to update post status:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
     }
-  }, [actor, actorLoading, getAllPosts]);
+  }, [actor, getAllPosts]);
 
   return { 
     posts, 
-    isLoading: isLoading || actorLoading, 
+    isLoading: isLoading || contextLoading, 
     error, 
     getAllPosts, 
     getPostsByCategory,
+    getUserPosts,
     searchPosts,
-    createPost
+    createPost,
+    updatePostStatus
   };
 };
 
 // Wallet-related hooks
 export const useWallet = () => {
-  const { actor, isLoading: actorLoading } = useBackend();
-  const { user, refreshUser } = useAuth();
+  const { actor, user, refreshUser, isLoading: contextLoading } = useBackend();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const depositFunds = useCallback(async (amount) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
       setIsLoading(true);
@@ -248,7 +231,7 @@ export const useWallet = () => {
   }, [actor, refreshUser]);
 
   const withdrawFunds = useCallback(async (amount) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
       setIsLoading(true);
@@ -270,7 +253,7 @@ export const useWallet = () => {
 
   return {
     balance: user?.wallet_balance || 0,
-    isLoading: isLoading || actorLoading,
+    isLoading: isLoading || contextLoading,
     error,
     depositFunds,
     withdrawFunds
@@ -279,10 +262,10 @@ export const useWallet = () => {
 
 // Messages and conversations hooks
 export const useConversations = () => {
-  const { actor, isLoading: actorLoading } = useBackend();
+  const { actor, isLoading: contextLoading } = useBackend();
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const getUserConversations = useCallback(async () => {
@@ -305,7 +288,7 @@ export const useConversations = () => {
   }, [actor]);
 
   const getConversation = useCallback(async (conversationId) => {
-    if (!actor) return;
+    if (!actor) return null;
     
     try {
       setIsLoading(true);
@@ -327,7 +310,7 @@ export const useConversations = () => {
   }, [actor]);
 
   const createConversation = useCallback(async (otherUserId) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
       setIsLoading(true);
@@ -348,7 +331,7 @@ export const useConversations = () => {
   }, [actor, getUserConversations]);
 
   const sendMessage = useCallback(async (conversationId, body) => {
-    if (!actor) return;
+    if (!actor) return { success: false, error: 'Backend not initialized' };
     
     try {
       setIsLoading(true);
@@ -371,21 +354,64 @@ export const useConversations = () => {
     }
   }, [actor, currentConversation, getConversation]);
 
-  // Load conversations when actor is ready
-  useEffect(() => {
-    if (!actorLoading && actor) {
-      getUserConversations();
+  const addProof = useCallback(async (conversationId, proofUrl) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.addProof(conversationId, proofUrl);
+      if ('ok' in result) {
+        // Refresh the current conversation to show the new proof
+        if (currentConversation && currentConversation.id === conversationId) {
+          await getConversation(conversationId);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to add proof:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
     }
-  }, [actor, actorLoading, getUserConversations]);
+  }, [actor, currentConversation, getConversation]);
+
+  const processReward = useCallback(async (conversationId, postId, recipientId) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.processReward(conversationId, postId, recipientId);
+      if ('ok' in result) {
+        // Refresh the current conversation after processing reward
+        if (currentConversation && currentConversation.id === conversationId) {
+          await getConversation(conversationId);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to process reward:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, currentConversation, getConversation]);
 
   return {
     conversations,
     currentConversation,
-    isLoading: isLoading || actorLoading,
+    isLoading: isLoading || contextLoading,
     error,
     getUserConversations,
     getConversation,
     createConversation,
-    sendMessage
+    sendMessage,
+    addProof,
+    processReward
   };
 };

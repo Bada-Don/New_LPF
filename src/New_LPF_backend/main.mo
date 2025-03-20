@@ -8,6 +8,7 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Hash "mo:base/Hash";
 
 import User "users";
 import Post "post";
@@ -30,8 +31,8 @@ actor LostPetFinder {
   private stable var nextTransactionId : Conversation.TransactionID = 0;
 
   private var users = HashMap.HashMap<Principal, User.User>(0, Principal.equal, Principal.hash);
-  private var posts = HashMap.HashMap<Post.PostID, Post.Post>(0, Nat.equal, Nat.hash);
-  private var conversations = HashMap.HashMap<Conversation.ConversationID, Conversation.Conversation>(0, Nat.equal, Nat.hash);
+  private var posts = HashMap.HashMap<Post.PostID, Post.Post>(0, Nat.equal, Hash.hash);
+  private var conversations = HashMap.HashMap<Conversation.ConversationID, Conversation.Conversation>(0, Nat.equal, Hash.hash);
 
   // User Management
   public shared (msg) func createUser(username : Text, email : Text, password : Text) : async Result.Result<Principal, Error> {
@@ -490,8 +491,8 @@ actor LostPetFinder {
   };
 
   // Search functionality
-  public func searchPosts(query : Text) : async [Post.Post] {
-    let searchText = Text.toLowercase(query);
+  public func searchPosts(searchQuery : Text) : async [Post.Post] {
+    let searchText = Text.toLowercase(searchQuery);
 
     let filteredPosts = Iter.filter(
       posts.vals(),
@@ -506,7 +507,7 @@ actor LostPetFinder {
       },
     );
 
-    Iter.toArray(filteredPosts);
+    return Iter.toArray(filteredPosts);
   };
 
   // Filter posts by area
