@@ -111,7 +111,7 @@ const WalletPage = () => {
         {/* Navbar */}
         <nav className="navbar">
         <div className="logo">
-        <Logo />
+        <img src={Logo} alt="PetReunite Logo" />
         <span>PetReunite</span>
         </div>
         <div className="nav-buttons">
