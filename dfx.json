@@ -1,0 +1,26 @@
+{
+  "canisters": {
+    "New_LPF_backend": {
+      "main": "src/New_LPF_backend/main.mo",
+      "type": "motoko"
+    },
+    "New_LPF_frontend": {
+      "dependencies": [
+        "New_LPF_backend"
+      ],
+      "source": [
+        "src/New_LPF_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "New_LPF_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
