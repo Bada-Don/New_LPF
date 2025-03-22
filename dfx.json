@@ -8,11 +8,17 @@
       "dependencies": [
         "New_LPF_backend"
       ],
+      "frontend": {
+        "entrypoint": "src/New_LPF_frontend/src/index.html"
+      },
       "source": [
-        "src/New_LPF_frontend/dist"
+        "src/New_LPF_frontend/assets",
+        "dist/New_LPF_frontend/"
       ],
       "type": "assets",
-      "workspace": "New_LPF_frontend"
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; connect-src 'self' https://*.ic0.app https://*.icp0.io https://*.raw.ic0.app https://*.raw.icp0.io localhost:*; img-src 'self' data: https://* blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
+      }
     }
   },
   "defaults": {
@@ -21,6 +27,5 @@
       "packtool": ""
     }
   },
-  "output_env_file": ".env",
   "version": 1
 }

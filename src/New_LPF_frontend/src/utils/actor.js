@@ -10,21 +10,21 @@ const createIDLFactory = () => {
       'InvalidInput': IDL.Null,
       'InsufficientFunds': IDL.Null,
     });
-    
+
     const PostID = IDL.Nat;
     const Principal = IDL.Principal;
     const Timestamp = IDL.Int;
-    
+
     const Category = IDL.Variant({
       'Lost': IDL.Null,
       'Found': IDL.Null,
     });
-    
+
     const Status = IDL.Variant({
       'Active': IDL.Null,
       'Resolved': IDL.Null,
     });
-    
+
     const Post = IDL.Record({
       'id': PostID,
       'owner': Principal,
@@ -41,19 +41,19 @@ const createIDLFactory = () => {
       'award_amount': IDL.Nat,
       'status': Status,
     });
-    
+
     const Result = IDL.Variant({ 'ok': Principal, 'err': Error });
     const Result_1 = IDL.Variant({ 'ok': IDL.Null, 'err': Error });
-    
+
     const ConversationID = IDL.Nat;
     const TransactionID = IDL.Nat;
-    
+
     const Message = IDL.Record({
       'sender': Principal,
       'body': IDL.Text,
       'timestamp': Timestamp,
     });
-    
+
     const Conversation = IDL.Record({
       'id': ConversationID,
       'users': IDL.Vec(Principal),
@@ -61,7 +61,7 @@ const createIDLFactory = () => {
       'proofs': IDL.Vec(IDL.Text),
       'reward_transaction': IDL.Opt(TransactionID),
     });
-    
+
     const User = IDL.Record({
       'id': Principal,
       'username': IDL.Text,
@@ -71,7 +71,7 @@ const createIDLFactory = () => {
       'conversations': IDL.Vec(ConversationID),
       'wallet_balance': IDL.Nat,
     });
-    
+
     const Result_2 = IDL.Variant({ 'ok': User, 'err': Error });
     const Result_3 = IDL.Variant({ 'ok': Post, 'err': Error });
     const Result_4 = IDL.Variant({ 'ok': IDL.Vec(Post), 'err': Error });
@@ -80,26 +80,26 @@ const createIDLFactory = () => {
     const Result_7 = IDL.Variant({ 'ok': IDL.Vec(Conversation), 'err': Error });
     const Result_8 = IDL.Variant({ 'ok': IDL.Nat, 'err': Error });
     const Result_9 = IDL.Variant({ 'ok': PostID, 'err': Error });
-    
+
     return IDL.Service({
       'addProof': IDL.Func([ConversationID, IDL.Text], [Result_1], []),
       'createConversation': IDL.Func([Principal], [Result_5], []),
       'createPost': IDL.Func(
-          [
-            IDL.Text,
-            IDL.Text,
-            IDL.Text,
-            IDL.Text,
-            IDL.Text,
-            IDL.Text,
-            Category,
-            IDL.Text,
-            IDL.Vec(IDL.Text),
-            IDL.Nat,
-          ],
-          [Result_9],
-          [],
-        ),
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          Category,
+          IDL.Text,
+          IDL.Vec(IDL.Text),
+          IDL.Nat,
+        ],
+        [Result_9],
+        [],
+      ),
       'createUser': IDL.Func([IDL.Text, IDL.Text, IDL.Text], [Result], []),
       'depositFunds': IDL.Func([IDL.Nat], [Result_8], []),
       'getAllPosts': IDL.Func([], [IDL.Vec(Post)], ['query']),
@@ -111,18 +111,18 @@ const createIDLFactory = () => {
       'getUserConversations': IDL.Func([], [Result_7], []),
       'getUserPosts': IDL.Func([], [Result_4], []),
       'processReward': IDL.Func(
-          [ConversationID, PostID, Principal],
-          [Result_1],
-          [],
-        ),
+        [ConversationID, PostID, Principal],
+        [Result_1],
+        [],
+      ),
       'searchPosts': IDL.Func([IDL.Text], [IDL.Vec(Post)], ['query']),
       'sendMessage': IDL.Func([ConversationID, IDL.Text], [Result_1], []),
       'updatePostStatus': IDL.Func([PostID, Status], [Result_1], []),
       'updateUser': IDL.Func(
-          [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
-          [Result_1],
-          [],
-        ),
+        [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
+        [Result_1],
+        [],
+      ),
       'withdrawFunds': IDL.Func([IDL.Nat], [Result_8], []),
     });
   };
@@ -139,25 +139,29 @@ const getCanisterId = () => {
   if (storedId) {
     return storedId;
   }
-  
-  // Hardcoded fallback - replace with your actual canister ID
-  return 'bkyz2-fmaaa-aaaaa-qaaaq-cai';
+
+  // Use the correct canister ID from your error logs
+  return 'bky22-fmaaa-aaaaa-qaaaq-cai';
 };
 
 export const createActor = (canisterId, options = {}) => {
   console.log("Creating actor with canister ID:", canisterId);
-  
+
   const agent = new HttpAgent({
     host: isLocalEnv ? LOCAL_HOST : options.host,
     ...options.agentOptions,
   });
 
-  // Only needed for local development
+  // Only needed for local development - IMPORTANT for certificate verification
   if (isLocalEnv) {
-    agent.fetchRootKey().catch(err => {
-      console.warn("Unable to fetch root key. Check if your local replica is running");
-      console.error(err);
-    });
+    try {
+      agent.fetchRootKey().catch(err => {
+        console.warn("Unable to fetch root key. Check if your local replica is running");
+        console.error(err);
+      });
+    } catch (e) {
+      console.error("Error fetching root key:", e);
+    }
   }
 
   // Use our manually created IDL factory
@@ -179,7 +183,13 @@ export const getBackendActor = async () => {
       const canisterId = getCanisterId();
       console.log("Using backend canister ID:", canisterId);
       backend = createActor(canisterId);
-      
+
+      // Make sure the root key is fetched before any calls
+      if (isLocalEnv) {
+        const agent = backend.getAgent();
+        await agent.fetchRootKey();
+      }
+
       // Test the connection but don't throw if it fails
       try {
         console.log("Testing connection to backend...");

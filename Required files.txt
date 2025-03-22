@@ -1,0 +1,1654 @@
+Some required files are:
+
+actor.js:
+```
+import { Actor, HttpAgent } from "@dfinity/agent";
+
+// Create a manual IDL factory since imports aren't working
+const createIDLFactory = () => {
+  return ({ IDL }) => {
+    const Error = IDL.Variant({
+      'NotFound': IDL.Null,
+      'AlreadyExists': IDL.Null,
+      'NotAuthorized': IDL.Null,
+      'InvalidInput': IDL.Null,
+      'InsufficientFunds': IDL.Null,
+    });
+
+    const PostID = IDL.Nat;
+    const Principal = IDL.Principal;
+    const Timestamp = IDL.Int;
+
+    const Category = IDL.Variant({
+      'Lost': IDL.Null,
+      'Found': IDL.Null,
+    });
+
+    const Status = IDL.Variant({
+      'Active': IDL.Null,
+      'Resolved': IDL.Null,
+    });
+
+    const Post = IDL.Record({
+      'id': PostID,
+      'owner': Principal,
+      'pet_name': IDL.Text,
+      'pet_type': IDL.Text,
+      'breed': IDL.Text,
+      'color': IDL.Text,
+      'height': IDL.Text,
+      'last_seen_location': IDL.Text,
+      'category': Category,
+      'date': Timestamp,
+      'area': IDL.Text,
+      'photos': IDL.Vec(IDL.Text),
+      'award_amount': IDL.Nat,
+      'status': Status,
+    });
+
+    const Result = IDL.Variant({ 'ok': Principal, 'err': Error });
+    const Result_1 = IDL.Variant({ 'ok': IDL.Null, 'err': Error });
+
+    const ConversationID = IDL.Nat;
+    const TransactionID = IDL.Nat;
+
+    const Message = IDL.Record({
+      'sender': Principal,
+      'body': IDL.Text,
+      'timestamp': Timestamp,
+    });
+
+    const Conversation = IDL.Record({
+      'id': ConversationID,
+      'users': IDL.Vec(Principal),
+      'messages': IDL.Vec(Message),
+      'proofs': IDL.Vec(IDL.Text),
+      'reward_transaction': IDL.Opt(TransactionID),
+    });
+
+    const User = IDL.Record({
+      'id': Principal,
+      'username': IDL.Text,
+      'email': IDL.Text,
+      'password': IDL.Text,
+      'posts': IDL.Vec(PostID),
+      'conversations': IDL.Vec(ConversationID),
+      'wallet_balance': IDL.Nat,
+    });
+
+    const Result_2 = IDL.Variant({ 'ok': User, 'err': Error });
+    const Result_3 = IDL.Variant({ 'ok': Post, 'err': Error });
+    const Result_4 = IDL.Variant({ 'ok': IDL.Vec(Post), 'err': Error });
+    const Result_5 = IDL.Variant({ 'ok': ConversationID, 'err': Error });
+    const Result_6 = IDL.Variant({ 'ok': Conversation, 'err': Error });
+    const Result_7 = IDL.Variant({ 'ok': IDL.Vec(Conversation), 'err': Error });
+    const Result_8 = IDL.Variant({ 'ok': IDL.Nat, 'err': Error });
+    const Result_9 = IDL.Variant({ 'ok': PostID, 'err': Error });
+
+    return IDL.Service({
+      'addProof': IDL.Func([ConversationID, IDL.Text], [Result_1], []),
+      'createConversation': IDL.Func([Principal], [Result_5], []),
+      'createPost': IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          Category,
+          IDL.Text,
+          IDL.Vec(IDL.Text),
+          IDL.Nat,
+        ],
+        [Result_9],
+        [],
+      ),
+      'createUser': IDL.Func([IDL.Text, IDL.Text, IDL.Text], [Result], []),
+      'depositFunds': IDL.Func([IDL.Nat], [Result_8], []),
+      'getAllPosts': IDL.Func([], [IDL.Vec(Post)], ['query']),
+      'getConversation': IDL.Func([ConversationID], [Result_6], []),
+      'getPost': IDL.Func([PostID], [Result_3], ['query']),
+      'getPostsByArea': IDL.Func([IDL.Text], [IDL.Vec(Post)], ['query']),
+      'getPostsByCategory': IDL.Func([Category], [IDL.Vec(Post)], ['query']),
+      'getUser': IDL.Func([], [Result_2], []),
+      'getUserConversations': IDL.Func([], [Result_7], []),
+      'getUserPosts': IDL.Func([], [Result_4], []),
+      'processReward': IDL.Func(
+        [ConversationID, PostID, Principal],
+        [Result_1],
+        [],
+      ),
+      'searchPosts': IDL.Func([IDL.Text], [IDL.Vec(Post)], ['query']),
+      'sendMessage': IDL.Func([ConversationID, IDL.Text], [Result_1], []),
+      'updatePostStatus': IDL.Func([PostID, Status], [Result_1], []),
+      'updateUser': IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
+        [Result_1],
+        [],
+      ),
+      'withdrawFunds': IDL.Func([IDL.Nat], [Result_8], []),
+    });
+  };
+};
+
+// Local development
+const LOCAL_HOST = "http://localhost:4943";
+const isLocalEnv = process.env.NODE_ENV !== "production";
+
+// Get the canister ID from a known source
+const getCanisterId = () => {
+  // Try to get from environment or localStorage
+  const storedId = localStorage.getItem('backendCanisterId');
+  if (storedId) {
+    return storedId;
+  }
+
+  // Use the correct canister ID from your error logs
+  return 'bky22-fmaaa-aaaaa-qaaaq-cai';
+};
+
+export const createActor = (canisterId, options = {}) => {
+  console.log("Creating actor with canister ID:", canisterId);
+
+  const agent = new HttpAgent({
+    host: isLocalEnv ? LOCAL_HOST : options.host,
+    ...options.agentOptions,
+  });
+
+  // Only needed for local development - IMPORTANT for certificate verification
+  if (isLocalEnv) {
+    try {
+      agent.fetchRootKey().catch(err => {
+        console.warn("Unable to fetch root key. Check if your local replica is running");
+        console.error(err);
+      });
+    } catch (e) {
+      console.error("Error fetching root key:", e);
+    }
+  }
+
+  // Use our manually created IDL factory
+  const idlFactory = createIDLFactory();
+
+  return Actor.createActor(idlFactory, {
+    agent,
+    canisterId,
+    ...options.actorOptions,
+  });
+};
+
+// Create a single instance of the actor
+let backend = null;
+
+export const getBackendActor = async () => {
+  if (!backend) {
+    try {
+      const canisterId = getCanisterId();
+      console.log("Using backend canister ID:", canisterId);
+      backend = createActor(canisterId);
+
+      // Make sure the root key is fetched before any calls
+      if (isLocalEnv) {
+        const agent = backend.getAgent();
+        await agent.fetchRootKey();
+      }
+
+      // Test the connection but don't throw if it fails
+      try {
+        console.log("Testing connection to backend...");
+        const testResult = await backend.getAllPosts();
+        console.log("Connection successful, got posts:", testResult);
+      } catch (testErr) {
+        console.warn("Test call failed, but continuing:", testErr);
+      }
+    } catch (err) {
+      console.error("Failed to initialize backend actor:", err);
+      throw err;
+    }
+  }
+  return backend;
+};
+
+```
+useBackend.js:
+```
+import { useState, useCallback } from 'react';
+import { useBackend } from '../context/BackendContext';
+
+// User-related hooks
+export const useAuth = () => {
+  const { actor, user, isLoading, isAuthenticated, refreshUser } = useBackend();
+  const [authLoading, setAuthLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createUser = useCallback(async (username, email, password) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setAuthLoading(true);
+      const result = await actor.createUser(username, email, password);
+      if ('ok' in result) {
+        await refreshUser(); // Refresh user data after creation
+        return { success: true, id: result.ok };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to create user:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [actor, refreshUser]);
+
+  const updateUser = useCallback(async (updates) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setAuthLoading(true);
+      const result = await actor.updateUser(
+        updates.username || null, 
+        updates.email || null, 
+        updates.password || null
+      );
+      if ('ok' in result) {
+        await refreshUser(); // Refresh user data after update
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to update user:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [actor, refreshUser]);
+
+  return { 
+    user, 
+    isLoading: isLoading || authLoading, 
+    error, 
+    createUser, 
+    updateUser,
+    refreshUser,
+    isAuthenticated
+  };
+};
+
+// Post-related hooks
+export const usePosts = () => {
+  const { actor, isLoading: contextLoading } = useBackend();
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const getAllPosts = useCallback(async () => {
+    if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getAllPosts();
+      setPosts(result);
+    } catch (err) {
+      console.error("Failed to get posts:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const getPostsByCategory = useCallback(async (category) => {
+    if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getPostsByCategory(category);
+      setPosts(result);
+    } catch (err) {
+      console.error("Failed to get posts by category:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const searchPosts = useCallback(async (query) => {
+    if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.searchPosts(query);
+      setPosts(result);
+    } catch (err) {
+      console.error("Failed to search posts:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const getUserPosts = useCallback(async () => {
+    if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getUserPosts();
+      if ('ok' in result) {
+        setPosts(result.ok);
+      } else {
+        setPosts([]);
+      }
+    } catch (err) {
+      console.error("Failed to get user posts:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const createPost = useCallback(async (postData) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.createPost(
+        postData.pet_name,
+        postData.pet_type,
+        postData.breed,
+        postData.color,
+        postData.height,
+        postData.last_seen_location,
+        postData.category, // #Lost or #Found
+        postData.area,
+        postData.photos,
+        postData.award_amount
+      );
+      
+      if ('ok' in result) {
+        await getAllPosts(); // Refresh posts after creation
+        return { success: true, id: result.ok };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to create post:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, getAllPosts]);
+
+  const updatePostStatus = useCallback(async (postId, status) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.updatePostStatus(postId, status);
+      if ('ok' in result) {
+        // Refresh posts after update
+        await getAllPosts();
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to update post status:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, getAllPosts]);
+
+  return { 
+    posts, 
+    isLoading: isLoading || contextLoading, 
+    error, 
+    getAllPosts, 
+    getPostsByCategory,
+    getUserPosts,
+    searchPosts,
+    createPost,
+    updatePostStatus
+  };
+};
+
+// Wallet-related hooks
+export const useWallet = () => {
+  const { actor, user, refreshUser, isLoading: contextLoading } = useBackend();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const depositFunds = useCallback(async (amount) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.depositFunds(amount);
+      if ('ok' in result) {
+        await refreshUser(); // Refresh user data to get updated balance
+        return { success: true, balance: result.ok };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to deposit funds:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, refreshUser]);
+
+  const withdrawFunds = useCallback(async (amount) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.withdrawFunds(amount);
+      if ('ok' in result) {
+        await refreshUser(); // Refresh user data to get updated balance
+        return { success: true, balance: result.ok };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to withdraw funds:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, refreshUser]);
+
+  return {
+    balance: user?.wallet_balance || 0,
+    isLoading: isLoading || contextLoading,
+    error,
+    depositFunds,
+    withdrawFunds
+  };
+};
+
+// Messages and conversations hooks
+export const useConversations = () => {
+  const { actor, isLoading: contextLoading } = useBackend();
+  const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const getUserConversations = useCallback(async () => {
+    if (!actor) return;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getUserConversations();
+      if ('ok' in result) {
+        setConversations(result.ok);
+      } else {
+        setConversations([]);
+      }
+    } catch (err) {
+      console.error("Failed to get conversations:", err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const getConversation = useCallback(async (conversationId) => {
+    if (!actor) return null;
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.getConversation(conversationId);
+      if ('ok' in result) {
+        setCurrentConversation(result.ok);
+        return result.ok;
+      } else {
+        setCurrentConversation(null);
+        return null;
+      }
+    } catch (err) {
+      console.error("Failed to get conversation:", err);
+      setError(err);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor]);
+
+  const createConversation = useCallback(async (otherUserId) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.createConversation(otherUserId);
+      if ('ok' in result) {
+        await getUserConversations(); // Refresh conversations after creation
+        return { success: true, id: result.ok };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to create conversation:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, getUserConversations]);
+
+  const sendMessage = useCallback(async (conversationId, body) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.sendMessage(conversationId, body);
+      if ('ok' in result) {
+        // Refresh the current conversation to show the new message
+        if (currentConversation && currentConversation.id === conversationId) {
+          await getConversation(conversationId);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, currentConversation, getConversation]);
+
+  const addProof = useCallback(async (conversationId, proofUrl) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.addProof(conversationId, proofUrl);
+      if ('ok' in result) {
+        // Refresh the current conversation to show the new proof
+        if (currentConversation && currentConversation.id === conversationId) {
+          await getConversation(conversationId);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to add proof:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, currentConversation, getConversation]);
+
+  const processReward = useCallback(async (conversationId, postId, recipientId) => {
+    if (!actor) return { success: false, error: 'Backend not initialized' };
+    
+    try {
+      setIsLoading(true);
+      const result = await actor.processReward(conversationId, postId, recipientId);
+      if ('ok' in result) {
+        // Refresh the current conversation after processing reward
+        if (currentConversation && currentConversation.id === conversationId) {
+          await getConversation(conversationId);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.err };
+      }
+    } catch (err) {
+      console.error("Failed to process reward:", err);
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actor, currentConversation, getConversation]);
+
+  return {
+    conversations,
+    currentConversation,
+    isLoading: isLoading || contextLoading,
+    error,
+    getUserConversations,
+    getConversation,
+    createConversation,
+    sendMessage,
+    addProof,
+    processReward
+  };
+};
+```
+BackendContext.jsx
+```
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getBackendActor } from '../utils/actor';
+
+// Create context
+const BackendContext = createContext();
+
+// Provider component
+export const BackendProvider = ({ children }) => {
+  const [actor, setActor] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
+
+  // Initialize actor
+  useEffect(() => {
+    const initActor = async () => {
+      try {
+        console.log("Initializing backend actor...");
+        const backendActor = await getBackendActor();
+        setActor(backendActor);
+        setConnectionStatus('connected');
+        setIsLoading(false);
+        console.log("Backend actor initialized successfully");
+      } catch (err) {
+        console.error("Failed to initialize actor:", err);
+        setError("Failed to connect to the backend service. Please check your connection or try again later.");
+        setConnectionStatus('failed');
+        setIsLoading(false);
+      }
+    };
+
+    initActor();
+  }, []);
+
+  // Try to get user data when actor is ready
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!actor) return;
+      
+      try {
+        console.log("Fetching user data...");
+        const result = await actor.getUser();
+        console.log("User result:", result);
+        if (result && 'ok' in result) {
+          setUser(result.ok);
+          console.log("User data fetched successfully");
+        } else {
+          console.log("No user found or not logged in");
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Failed to get user:", err);
+        setUser(null);
+      }
+    };
+
+    if (actor && connectionStatus === 'connected') {
+      fetchUser();
+    }
+  }, [actor, connectionStatus]);
+
+  // Context value
+  const contextValue = {
+    actor,
+    user,
+    isLoading,
+    error,
+    connectionStatus,
+    isAuthenticated: !!user,
+    refreshUser: async () => {
+      if (!actor) return;
+      
+      try {
+        const result = await actor.getUser();
+        if (result && 'ok' in result) {
+          setUser(result.ok);
+        }
+      } catch (err) {
+        console.error("Failed to refresh user:", err);
+      }
+    }
+  };
+
+  // Loading component
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column'
+      }}>
+        <div style={{ marginBottom: '20px' }}>Connecting to backend...</div>
+        <div style={{ 
+          width: '50px', 
+          height: '50px', 
+          border: '5px solid #f3f3f3',
+          borderTop: '5px solid #3498db',
+          borderRadius: '50%',
+          animation: 'spin 2s linear infinite'
+        }}></div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Error component
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        padding: '20px',
+        textAlign: 'center'
+      }}>
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24',
+          padding: '20px',
+          borderRadius: '5px',
+          marginBottom: '20px',
+          maxWidth: '500px'
+        }}>
+          <h3 style={{ marginTop: 0 }}>Connection Error</h3>
+          <p>{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <BackendContext.Provider value={contextValue}>
+      {children}
+    </BackendContext.Provider>
+  );
+};
+
+// Custom hook to use the backend context
+export const useBackend = () => {
+  const context = useContext(BackendContext);
+  if (context === undefined) {
+    throw new Error('useBackend must be used within a BackendProvider');
+  }
+  return context;
+};
+```
+AuthPage.jsx:
+```
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './AuthPage.css';
+import Logo from '../assets/paw-logo.png';
+import { useAuth } from '../hooks/useBackend';
+
+const AuthPage = () => {
+    const navigate = useNavigate();
+    const { createUser, user, isLoading, error: authError } = useAuth();
+    
+    const [isLogin, setIsLogin] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // Redirect if already logged in
+    useEffect(() => {
+        if (user) {
+            navigate('/');
+        }
+    }, [user, navigate]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        
+        if (isLogin) {
+            // Login is not yet implemented in the backend
+            setError('Login functionality is not available yet.');
+            console.log('Logging in', { email, password });
+        } else {
+            // Registration
+            try {
+                if (!name || !email || !password) {
+                    setError('All fields are required');
+                    return;
+                }
+                
+                const result = await createUser(name, email, password);
+                if (result.success) {
+                    setSuccess('Account created successfully!');
+                    // Redirect to home page after a short delay
+                    setTimeout(() => {
+                        navigate('/');
+                    }, 2000);
+                } else {
+                    setError(result.error ? `Registration failed: ${result.error}` : 'Registration failed');
+                }
+            } catch (err) {
+                setError('Registration failed. Please try again.');
+                console.error(err);
+            }
+        }
+    };
+
+    return (
+        <div className="auth-container">
+            <div className="auth-sidebar">
+                <div className="logo-container" onClick={() => navigate('/')}>
+                    <img src={Logo} alt="PawFinder Logo" className="logo" />
+                    <h1>PawFinder</h1>
+                </div>
+                <div className="sidebar-menu">
+                    <div className="menu-item" onClick={() => navigate('/')}>
+                        <i className="fas fa-search"></i>
+                        <span>Find Pets</span>
+                    </div>
+                    <div className="menu-item" onClick={() => navigate('/petform')}>
+                        <i className="fas fa-paw"></i>
+                        <span>Report Found</span>
+                    </div>
+                    <div className="menu-item">
+                        <i className="fas fa-book"></i>
+                        <span>Resources</span>
+                    </div>
+                    <div className="menu-item">
+                        <i className="fas fa-map-marker-alt"></i>
+                        <span>Map</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="auth-content">
+                <div className="notification-banner">
+                    <p>PawFinder v2.0 is here! Read about our newest features.</p>
+                </div>
+
+                <div className="auth-form-container">
+                    <div className="auth-form-header">
+                        <h2>{isLogin ? 'Welcome Back' : 'Join PawFinder'}</h2>
+                        <p>{isLogin ? 'Sign in to continue your search' : 'Create an account to help find lost pets'}</p>
+                    </div>
+
+                    {error && <div className="error-message">{error}</div>}
+                    {authError && <div className="error-message">An error occurred. Please try again.</div>}
+                    {success && <div className="success-message">{success}</div>}
+
+                    <form className="auth-form" onSubmit={handleSubmit}>
+                        {!isLogin && (
+                            <div className="form-group">
+                                <label htmlFor="name">Username</label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Enter your username"
+                                    required
+                                />
+                            </div>
+                        )}
+
+                        <div className="form-group">
+                            <label htmlFor="email">Email</label>
+                            <input
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Enter your email"
+                                required
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="password">Password</label>
+                            <input
+                                type="password"
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter your password"
+                                required
+                            />
+                        </div>
+
+                        {isLogin && (
+                            <div className="forgot-password">
+                                <a href="#forgot">Forgot password?</a>
+                            </div>
+                        )}
+
+                        <button 
+                            type="submit" 
+                            className="auth-button"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+                        </button>
+                    </form>
+
+                    <div className="auth-switch">
+                        <p>
+                            {isLogin ? "Don't have an account? " : "Already have an account? "}
+                            <button
+                                className="switch-button"
+                                onClick={() => setIsLogin(!isLogin)}
+                            >
+                                {isLogin ? 'Sign Up' : 'Sign In'}
+                            </button>
+                        </p>
+                    </div>
+
+                    <div className="auth-divider">
+                        <span>or continue with</span>
+                    </div>
+
+                    <div className="social-auth">
+                        <button className="social-button google">
+                            <i className="fab fa-google"></i>
+                            Google
+                        </button>
+                        <button className="social-button facebook">
+                            <i className="fab fa-facebook"></i>
+                            Facebook
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AuthPage;
+```
+main.jsx:
+```
+import Principal "mo:base/Principal";
+import HashMap "mo:base/HashMap";
+import Array "mo:base/Array";
+import Iter "mo:base/Iter";
+import Option "mo:base/Option";
+import Time "mo:base/Time";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
+import Hash "mo:base/Hash";
+
+import User "users";
+import Post "post";
+import Conversation "conversations";
+import Message "message";
+
+actor LostPetFinder {
+  // Type definitions for errors
+  type Error = {
+    #NotFound;
+    #AlreadyExists;
+    #NotAuthorized;
+    #InvalidInput;
+    #InsufficientFunds;
+  };
+
+  // Storage
+  private stable var nextPostId : Post.PostID = 0;
+  private stable var nextConversationId : Conversation.ConversationID = 0;
+  private stable var nextTransactionId : Conversation.TransactionID = 0;
+
+  private var users = HashMap.HashMap<Principal, User.User>(0, Principal.equal, Principal.hash);
+  private var posts = HashMap.HashMap<Post.PostID, Post.Post>(0, Nat.equal, Hash.hash);
+  private var conversations = HashMap.HashMap<Conversation.ConversationID, Conversation.Conversation>(0, Nat.equal, Hash.hash);
+
+  // User Management
+  public shared (msg) func createUser(username : Text, email : Text, password : Text) : async Result.Result<Principal, Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?_) { return #err(#AlreadyExists) };
+      case (null) {
+        let newUser : User.User = {
+          id = caller;
+          username = username;
+          email = email;
+          password = password;
+          posts = [];
+          conversations = [];
+          wallet_balance = 0;
+        };
+
+        users.put(caller, newUser);
+        return #ok(caller);
+      };
+    };
+  };
+
+  public shared (msg) func getUser() : async Result.Result<User.User, Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) { return #ok(user) };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  public shared (msg) func updateUser(username : ?Text, email : ?Text, password : ?Text) : async Result.Result<(), Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        let updatedUser : User.User = {
+          id = user.id;
+          username = Option.get(username, user.username);
+          email = Option.get(email, user.email);
+          password = Option.get(password, user.password);
+          posts = user.posts;
+          conversations = user.conversations;
+          wallet_balance = user.wallet_balance;
+        };
+
+        users.put(caller, updatedUser);
+        return #ok();
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // Post Management
+  public shared (msg) func createPost(
+    pet_name : Text,
+    pet_type : Text,
+    breed : Text,
+    color : Text,
+    height : Text,
+    last_seen_location : Text,
+    category : Post.Category,
+    area : Text,
+    photos : [Text],
+    award_amount : Nat,
+  ) : async Result.Result<Post.PostID, Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        // Validate photos count
+        if (photos.size() > 5) {
+          return #err(#InvalidInput);
+        };
+
+        // Validate award amount
+        if (award_amount > user.wallet_balance) {
+          return #err(#InsufficientFunds);
+        };
+
+        let postId = nextPostId;
+        nextPostId += 1;
+
+        let newPost : Post.Post = {
+          id = postId;
+          owner = caller;
+          pet_name = pet_name;
+          pet_type = pet_type;
+          breed = breed;
+          color = color;
+          height = height;
+          last_seen_location = last_seen_location;
+          category = category;
+          date = Time.now();
+          area = area;
+          photos = photos;
+          award_amount = award_amount;
+          status = #Active;
+        };
+
+        posts.put(postId, newPost);
+
+        // Update user's posts
+        let updatedPosts = Array.append<Post.PostID>(user.posts, [postId]);
+        let updatedUser : User.User = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = user.password;
+          posts = updatedPosts;
+          conversations = user.conversations;
+          wallet_balance = user.wallet_balance - award_amount;
+        };
+
+        users.put(caller, updatedUser);
+        return #ok(postId);
+      };
+      case (null) { return #err(#NotAuthorized) };
+    };
+  };
+
+  public func getPost(postId : Post.PostID) : async Result.Result<Post.Post, Error> {
+    switch (posts.get(postId)) {
+      case (?post) { return #ok(post) };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  public func getAllPosts() : async [Post.Post] {
+    Iter.toArray(posts.vals());
+  };
+
+  public func getPostsByCategory(category : Post.Category) : async [Post.Post] {
+    let filteredPosts = Iter.filter(
+      posts.vals(),
+      func(post : Post.Post) : Bool {
+        post.category == category and post.status == #Active
+      },
+    );
+    Iter.toArray(filteredPosts);
+  };
+
+  public shared (msg) func updatePostStatus(postId : Post.PostID, status : Post.Status) : async Result.Result<(), Error> {
+    let caller = msg.caller;
+
+    switch (posts.get(postId)) {
+      case (?post) {
+        if (post.owner != caller) {
+          return #err(#NotAuthorized);
+        };
+
+        let updatedPost : Post.Post = {
+          id = post.id;
+          owner = post.owner;
+          pet_name = post.pet_name;
+          pet_type = post.pet_type;
+          breed = post.breed;
+          color = post.color;
+          height = post.height;
+          last_seen_location = post.last_seen_location;
+          category = post.category;
+          date = post.date;
+          area = post.area;
+          photos = post.photos;
+          award_amount = post.award_amount;
+          status = status;
+        };
+
+        posts.put(postId, updatedPost);
+        return #ok();
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // Conversation Management
+  public shared (msg) func createConversation(otherUser : Principal) : async Result.Result<Conversation.ConversationID, Error> {
+    let caller = msg.caller;
+
+    if (Principal.equal(caller, otherUser)) {
+      return #err(#InvalidInput);
+    };
+
+    switch (users.get(caller), users.get(otherUser)) {
+      case (?user1, ?user2) {
+        let conversationId = nextConversationId;
+        nextConversationId += 1;
+
+        let newConversation : Conversation.Conversation = {
+          id = conversationId;
+          users = [caller, otherUser];
+          messages = [];
+          proofs = [];
+          reward_transaction = null;
+        };
+
+        conversations.put(conversationId, newConversation);
+
+        // Update both users' conversations
+        let updatedUser1 : User.User = {
+          id = user1.id;
+          username = user1.username;
+          email = user1.email;
+          password = user1.password;
+          posts = user1.posts;
+          conversations = Array.append<Conversation.ConversationID>(user1.conversations, [conversationId]);
+          wallet_balance = user1.wallet_balance;
+        };
+
+        let updatedUser2 : User.User = {
+          id = user2.id;
+          username = user2.username;
+          email = user2.email;
+          password = user2.password;
+          posts = user2.posts;
+          conversations = Array.append<Conversation.ConversationID>(user2.conversations, [conversationId]);
+          wallet_balance = user2.wallet_balance;
+        };
+
+        users.put(caller, updatedUser1);
+        users.put(otherUser, updatedUser2);
+
+        return #ok(conversationId);
+      };
+      case _ { return #err(#NotFound) };
+    };
+  };
+
+  public shared (msg) func sendMessage(conversationId : Conversation.ConversationID, body : Text) : async Result.Result<(), Error> {
+    let caller = msg.caller;
+
+    switch (conversations.get(conversationId)) {
+      case (?conversation) {
+        // Check if caller is part of the conversation
+        let isParticipant = Array.find<Principal>(
+          conversation.users,
+          func(user : Principal) : Bool { Principal.equal(user, caller) },
+        );
+
+        switch (isParticipant) {
+          case (null) { return #err(#NotAuthorized) };
+          case (?_) {
+            let newMessage : Message.Message = {
+              sender = caller;
+              body = body;
+              timestamp = Time.now();
+            };
+
+            let updatedMessages = Array.append<Message.Message>(conversation.messages, [newMessage]);
+            let updatedConversation : Conversation.Conversation = {
+              id = conversation.id;
+              users = conversation.users;
+              messages = updatedMessages;
+              proofs = conversation.proofs;
+              reward_transaction = conversation.reward_transaction;
+            };
+
+            conversations.put(conversationId, updatedConversation);
+            return #ok();
+          };
+        };
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  public shared (msg) func getConversation(conversationId : Conversation.ConversationID) : async Result.Result<Conversation.Conversation, Error> {
+    let caller = msg.caller;
+
+    switch (conversations.get(conversationId)) {
+      case (?conversation) {
+        // Check if caller is part of the conversation
+        let isParticipant = Array.find<Principal>(
+          conversation.users,
+          func(user : Principal) : Bool { Principal.equal(user, caller) },
+        );
+
+        switch (isParticipant) {
+          case (null) { return #err(#NotAuthorized) };
+          case (?_) { return #ok(conversation) };
+        };
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  public shared (msg) func addProof(conversationId : Conversation.ConversationID, proofUrl : Text) : async Result.Result<(), Error> {
+    let caller = msg.caller;
+
+    switch (conversations.get(conversationId)) {
+      case (?conversation) {
+        // Check if caller is part of the conversation
+        let isParticipant = Array.find<Principal>(
+          conversation.users,
+          func(user : Principal) : Bool { Principal.equal(user, caller) },
+        );
+
+        switch (isParticipant) {
+          case (null) { return #err(#NotAuthorized) };
+          case (?_) {
+            let updatedProofs = Array.append<Text>(conversation.proofs, [proofUrl]);
+            let updatedConversation : Conversation.Conversation = {
+              id = conversation.id;
+              users = conversation.users;
+              messages = conversation.messages;
+              proofs = updatedProofs;
+              reward_transaction = conversation.reward_transaction;
+            };
+
+            conversations.put(conversationId, updatedConversation);
+            return #ok();
+          };
+        };
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // Reward Transaction
+  public shared (msg) func processReward(
+    conversationId : Conversation.ConversationID,
+    postId : Post.PostID,
+    recipientId : Principal,
+  ) : async Result.Result<(), Error> {
+    let caller = msg.caller;
+
+    switch (conversations.get(conversationId), posts.get(postId), users.get(recipientId)) {
+      case (?conversation, ?post, ?recipient) {
+        // Check if caller is the post owner
+        if (not Principal.equal(caller, post.owner)) {
+          return #err(#NotAuthorized);
+        };
+
+        // Check if both users are part of the conversation
+        let callerIsParticipant = Array.find<Principal>(
+          conversation.users,
+          func(user : Principal) : Bool { Principal.equal(user, caller) },
+        );
+        let recipientIsParticipant = Array.find<Principal>(
+          conversation.users,
+          func(user : Principal) : Bool { Principal.equal(user, recipientId) },
+        );
+
+        if (Option.isNull(callerIsParticipant) or Option.isNull(recipientIsParticipant)) {
+          return #err(#NotAuthorized);
+        };
+
+        // Check if post is still active
+        if (post.status != #Active) {
+          return #err(#InvalidInput);
+        };
+
+        // Create transaction
+        let transactionId = nextTransactionId;
+        nextTransactionId += 1;
+
+        // Update conversation with transaction
+        let updatedConversation : Conversation.Conversation = {
+          id = conversation.id;
+          users = conversation.users;
+          messages = conversation.messages;
+          proofs = conversation.proofs;
+          reward_transaction = ?transactionId;
+        };
+
+        conversations.put(conversationId, updatedConversation);
+
+        // Update post status
+        let updatedPost : Post.Post = {
+          id = post.id;
+          owner = post.owner;
+          pet_name = post.pet_name;
+          pet_type = post.pet_type;
+          breed = post.breed;
+          color = post.color;
+          height = post.height;
+          last_seen_location = post.last_seen_location;
+          category = post.category;
+          date = post.date;
+          area = post.area;
+          photos = post.photos;
+          award_amount = post.award_amount;
+          status = #Resolved;
+        };
+
+        posts.put(postId, updatedPost);
+
+        // Update recipient's wallet balance
+        let updatedRecipient : User.User = {
+          id = recipient.id;
+          username = recipient.username;
+          email = recipient.email;
+          password = recipient.password;
+          posts = recipient.posts;
+          conversations = recipient.conversations;
+          wallet_balance = recipient.wallet_balance + post.award_amount;
+        };
+
+        users.put(recipientId, updatedRecipient);
+
+        return #ok();
+      };
+      case _ { return #err(#NotFound) };
+    };
+  };
+
+  // Wallet Management
+  public shared (msg) func depositFunds(amount : Nat) : async Result.Result<Nat, Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        let updatedUser : User.User = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = user.password;
+          posts = user.posts;
+          conversations = user.conversations;
+          wallet_balance = user.wallet_balance + amount;
+        };
+
+        users.put(caller, updatedUser);
+        return #ok(updatedUser.wallet_balance);
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  public shared (msg) func withdrawFunds(amount : Nat) : async Result.Result<Nat, Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        if (amount > user.wallet_balance) {
+          return #err(#InsufficientFunds);
+        };
+
+        let updatedUser : User.User = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = user.password;
+          posts = user.posts;
+          conversations = user.conversations;
+          wallet_balance = user.wallet_balance - amount;
+        };
+
+        users.put(caller, updatedUser);
+        return #ok(updatedUser.wallet_balance);
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // Search functionality
+  public func searchPosts(searchQuery : Text) : async [Post.Post] {
+    let searchText = Text.toLowercase(searchQuery);
+
+    let filteredPosts = Iter.filter(
+      posts.vals(),
+      func(post : Post.Post) : Bool {
+        let petNameMatch = Text.contains(Text.toLowercase(post.pet_name), #text searchText);
+        let petTypeMatch = Text.contains(Text.toLowercase(post.pet_type), #text searchText);
+        let breedMatch = Text.contains(Text.toLowercase(post.breed), #text searchText);
+        let colorMatch = Text.contains(Text.toLowercase(post.color), #text searchText);
+        let areaMatch = Text.contains(Text.toLowercase(post.area), #text searchText);
+
+        return petNameMatch or petTypeMatch or breedMatch or colorMatch or areaMatch;
+      },
+    );
+
+    return Iter.toArray(filteredPosts);
+  };
+
+  // Filter posts by area
+  public func getPostsByArea(area : Text) : async [Post.Post] {
+    let areaText = Text.toLowercase(area);
+
+    let filteredPosts = Iter.filter(
+      posts.vals(),
+      func(post : Post.Post) : Bool {
+        Text.contains(Text.toLowercase(post.area), #text areaText) and post.status == #Active
+      },
+    );
+
+    Iter.toArray(filteredPosts);
+  };
+
+  // Get user's posts
+  public shared (msg) func getUserPosts() : async Result.Result<[Post.Post], Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        let userPosts = Array.mapFilter<Post.PostID, Post.Post>(
+          user.posts,
+          func(postId : Post.PostID) : ?Post.Post {
+            posts.get(postId);
+          },
+        );
+
+        return #ok(userPosts);
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // Get user's conversations
+  public shared (msg) func getUserConversations() : async Result.Result<[Conversation.Conversation], Error> {
+    let caller = msg.caller;
+
+    switch (users.get(caller)) {
+      case (?user) {
+        let userConversations = Array.mapFilter<Conversation.ConversationID, Conversation.Conversation>(
+          user.conversations,
+          func(convId : Conversation.ConversationID) : ?Conversation.Conversation {
+            conversations.get(convId);
+          },
+        );
+
+        return #ok(userConversations);
+      };
+      case (null) { return #err(#NotFound) };
+    };
+  };
+
+  // System upgrade hooks for persistence
+  system func preupgrade() {
+    // Implementation would include logic to convert HashMap to stable storage
+    // This is just a placeholder - actual implementation would depend on specific requirements
+    Debug.print("Preparing for upgrade...");
+  };
+
+  system func postupgrade() {
+    // Implementation would include logic to restore from stable storage
+    Debug.print("Upgrade complete!");
+  };
+};
+```
+dfx.json
+```
+{
+  "canisters": {
+    "New_LPF_backend": {
+      "main": "src/New_LPF_backend/main.mo",
+      "type": "motoko"
+    },
+    "New_LPF_frontend": {
+      "dependencies": [
+        "New_LPF_backend"
+      ],
+      "frontend": {
+        "entrypoint": "src/New_LPF_frontend/src/index.html"
+      },
+      "source": [
+        "src/New_LPF_frontend/assets",
+        "dist/New_LPF_frontend/"
+      ],
+      "type": "assets",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; connect-src 'self' https://*.ic0.app https://*.icp0.io https://*.raw.ic0.app https://*.raw.icp0.io localhost:*; img-src 'self' data: https://* blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
+      }
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "version": 1
+}
+```
+vite.config.js
+```
+import { fileURLToPath, URL } from 'url';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+import environment from 'vite-plugin-environment';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '../../.env' });
+
+export default defineConfig({
+  build: {
+    emptyOutDir: true,
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+      },
+    },
+  },
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:4943",
+        changeOrigin: true,
+      },
+    },
+  },
+  plugins: [
+    react(),
+    environment("all", { prefix: "CANISTER_" }),
+    environment("all", { prefix: "DFX_" }),
+  ],
+  resolve: {
+    alias: [
+      {
+        find: "declarations",
+        replacement: fileURLToPath(
+          new URL("../declarations", import.meta.url)
+        ),
+      },
+    ],
+    dedupe: ['@dfinity/agent'],
+  },
+});
+
+```
