@@ -1,15 +1,18 @@
-import Principal "mo:base/Principal";
-import Message "message";
+import Time "mo:base/Time";
 
 module {
-    public type ConversationID = Nat;
-    public type TransactionID = Nat;
-    
     public type Conversation = {
-        id: ConversationID;
-        users: [Principal];
-        messages: [Message.Message];
-        proofs: [Text]; // URLs of proof images
-        reward_transaction: ?TransactionID;
+        id: Nat;
+        users: [Nat];         // Users involved in the conversation
+        messages: [Message];  // Array of messages exchanged
+        proofs: [Text];       // Image proofs for found pets
+        reward_transaction: ?Nat; // Transaction ID if reward is claimed
+    };
+
+    public type Message = {
+        id: Nat;
+        senderId: Nat;
+        content: Text;
+        timestamp: Int;
     };
 }

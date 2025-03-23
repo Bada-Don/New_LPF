@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect } from "react";
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
 import LostPetForm from './pages/LostPetForm';
 import MessagesPage from './pages/MessagesPage';
 import WalletPage from './pages/WalletPage';
+import { New_LPF_backend } from "../../declarations/New_LPF_backend"; // Import backend
+
 
 function App() {
   return (
