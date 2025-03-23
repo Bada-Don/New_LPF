@@ -9,6 +9,21 @@ import { New_LPF_backend } from "../../declarations/New_LPF_backend"; // Import 
 
 
 function App() {
+
+  useEffect(() => {
+    const testBackend = async () => {
+      try {
+        const response = await New_LPF_backend.getAllPetPosts();
+        console.log("✅ Backend Response:", response);
+      } catch (error) {
+        console.error("❌ Backend Error:", error);
+      }
+    };
+
+    testBackend();
+  }, []);
+
+
   return (
     <BrowserRouter
       future={{

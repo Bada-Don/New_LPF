@@ -8,7 +8,11 @@
       "dependencies": [
         "New_LPF_backend"
       ],
+      "frontend": {
+        "entrypoint": "src/New_LPF_frontend/src/index.html"
+      },
       "source": [
+        "src/New_LPF_frontend/src/assets",
         "src/New_LPF_frontend/dist"
       ],
       "type": "assets",

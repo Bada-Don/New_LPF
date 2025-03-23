@@ -1,54 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './HomePage.css';
 import Logo from '../assets/paw-logo.png';
+import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
+import { Actor, HttpAgent } from "@dfinity/agent";
 
-// Sample data for demonstration
-const samplePets = [
-    {
-        id: 1,
-        name: 'Max',
-        type: 'Dog',
-        status: 'Lost',
-        photo: 'https://placedog.net/500/300',
-        location: 'Central Park, NYC',
-        date: '2025-03-15',
-        incentive: 200,
-        description: 'Golden Retriever, friendly, has a blue collar'
-    },
-{
-    id: 2,
-    name: 'Whiskers',
-    type: 'Cat',
-    status: 'Found',
-    photo: 'https://www.treehugger.com/thmb/f8Yki-wOf-GNpYR2H3NCCVsjGGY=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/portrait-of-beautiful-white-burmilla-looking-up--black-background-495381097-8202bb60c75949529eb48060044ed0b5.jpg',
-    location: 'Downtown, Seattle',
-    date: '2025-03-18',
-    incentive: 0,
-    description: 'Gray tabby, very affectionate, no collar'
-},
-{
-    id: 3,
-    name: 'Buddy',
-    type: 'Dog',
-    status: 'Lost',
-    photo: 'https://placedog.net/501/300',
-    location: 'Highland Park, Chicago',
-    date: '2025-03-10',
-    incentive: 300,
-    description: 'Labrador mix, brown, has a red collar with tags'
-},
-{
-    id: 4,
-    name: 'Mittens',
-    type: 'Cat',
-    status: 'Found',
-    photo: 'https://i.ytimg.com/vi/VZL1PVSjaQA/maxresdefault.jpg',
-    location: 'Mission District, SF',
-    date: '2025-03-19',
-    incentive: 0,
-    description: 'Black and white cat, very shy, has a microchip'
-}
-];
 
 const HomePage = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -56,10 +11,29 @@ const HomePage = () => {
     const [typeFilter, setTypeFilter] = useState('All');
     const [sortBy, setSortBy] = useState('date');
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [pets, setPets] = useState([]);
+
+    // Create the agent and actor
+    const createActor = async () => {
+        const host = "http://localhost:4943";
+        const agent = new HttpAgent({ host });
+        
+        // When deploying to the IC, remove this line
+        if (process.env.NODE_ENV !== "production") {
+            await agent.fetchRootKey();
+        }
+        
+        // Replace with your actual canister ID from dfx deploy
+        const canisterId = "bkyz2-fmaaa-aaaaa-qaaaq-cai";
+        
+        return Actor.createActor(idlFactory, {
+            agent,
+            canisterId,
+        });
+    };
 
     // Filter and sort pets
-    const filteredPets = samplePets
-    .filter(pet =>
+    const filteredPets = pets.filter(pet =>
     pet.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
     (statusFilter === 'All' || pet.status === statusFilter) &&
     (typeFilter === 'All' || pet.type === typeFilter)
@@ -72,6 +46,52 @@ const HomePage = () => {
         }
         return 0;
     });
+
+    useEffect(() => {
+        const fetchPets = async () => {
+            try {
+                console.log("Fetching pets...");
+                // Create an agent for local development
+                const agent = new HttpAgent({ host: "http://localhost:4943" });
+                
+                // IMPORTANT: This line is crucial for local development
+                // It fetches the root key from your local replica
+                await agent.fetchRootKey();
+                
+                const actor = Actor.createActor(idlFactory, {
+                    agent,
+                    canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                });
+                
+                console.log("Calling backend...");
+                const petPosts = await actor.getAllPetPosts();
+                console.log("Backend Response:", petPosts);
+                
+                // Map data to fit frontend structure
+                const formattedPets = petPosts.map(pet => ({
+                    id: Number(pet.id),
+                    name: pet.petName || 'Unknown',
+                    type: pet.pet_type || 'Unknown',
+                    // Properly handle variant types from Motoko
+                    status: Object.hasOwnProperty.call(pet.status, 'Active') ? 'Lost' : 'Found',
+                    photo: pet.photos && pet.photos.length > 0 ? pet.photos[0] : 'https://via.placeholder.com/150',
+                    location: pet.last_seen_location || 'Unknown',
+                    date: new Date(Number(pet.timestamp) / 1000000).toISOString().split('T')[0],
+                    incentive: Number(pet.award_amount),
+                    description: pet.description || 'No description available'
+                }));
+                
+                console.log("Formatted pets:", formattedPets);
+                setPets(formattedPets);
+            } catch (error) {
+                console.error("Error fetching pets:", error);
+            }
+        };
+        
+        fetchPets();
+    }, []);
+
+    
 
     return (
         <div className="home-page">
