@@ -334,3 +334,16 @@ actor New_LPF_backend {
     };
   };
 };
+
+// --------- Commands to test the canister ---------
+
+// Commands to post pet:
+// dfx canister call New_LPF_backend reportPet '(1, "Noddy", "Dog", "Golden Retriever", "Golden", "Medium", "Central Park", "Friendly dog with blue collar", vec {"https://example.com/dog.jpg"}, 100, variant { Lost })'
+// dfx canister call New_LPF_backend reportPet '(1, "Max", "Dog", "German Shepherd", "Black and tan", "Large", "Riverside Trail", "Male dog with red collar and tag, very friendly", vec {"https://example.com/shepherd.jpg"; "https://example.com/shepherd2.jpg"}, 250, variant { Lost })'
+
+// Command to register User:
+// dfx canister call New_LPF_backend registerUser '("alice", "alice@example.com", "securepass")'
+
+// Command to getUser:
+// dfx canister call New_LPF_backend getUser '(1)'
+// dfx canister call New_LPF_backend getUser '(0)'
