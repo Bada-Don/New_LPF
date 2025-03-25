@@ -1,0 +1,36 @@
+// Current list of users:
+
+registerUser(username, email, password)
+
+getUser(userId)
+
+sendMessage(convoId, senderId, content)
+
+getMessagesForUser(userId)
+
+reportPet(userId, petName, petType, breed, color, height, lastSeenLocation, description, photos, awardAmount, category)
+
+getAllPetPosts()
+
+startConversation(user1, user2)
+
+resolvePetPost(postId, resolverId)
+
+hashPassword(password)
+
+System upgrade hooks: preupgrade() postupgrade()
+
+
+
+// Functions that need to be made
+
+getAllUsers()
+
+deleteUser()
+
+deletePost()
+
+// Current problems
+
+Login system not working properly. Doesn't check password. Doesn't check if the user exists or not. All in all the authentication system is 
+not working. 

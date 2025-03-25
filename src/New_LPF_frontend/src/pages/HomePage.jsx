@@ -83,9 +83,9 @@ const HomePage = () => {
     // Handle report pet button click
     const handleReportPetClick = () => {
         if (isLoggedIn) {
-            navigate('/report-pet');
+            navigate('/petform');
         } else {
-            navigate('/auth', { state: { redirectTo: '/report-pet' } });
+            navigate('/auth', { state: { redirectTo: '/petform' } });
         }
     };
 
@@ -106,41 +106,40 @@ const HomePage = () => {
                 console.log("Fetching pets...");
                 // Create an agent for local development
                 const agent = new HttpAgent({ host: "http://localhost:4943" });
-
+    
                 // IMPORTANT: This line is crucial for local development
-                // It fetches the root key from your local replica
                 await agent.fetchRootKey();
-
+    
                 const actor = Actor.createActor(idlFactory, {
                     agent,
                     canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
                 });
-
+    
                 console.log("Calling backend...");
                 const petPosts = await actor.getAllPetPosts();
                 console.log("Backend Response:", petPosts);
-
+    
                 // Map data to fit frontend structure
                 const formattedPets = petPosts.map(pet => ({
                     id: Number(pet.id),
                     name: pet.petName || 'Unknown',
                     type: pet.pet_type || 'Unknown',
                     // Properly handle variant types from Motoko
-                    status: Object.hasOwnProperty.call(pet.status, 'Active') ? 'Lost' : 'Found',
+                    status: 'Active' in pet.status ? 'Lost' : 'Found',
                     photo: pet.photos && pet.photos.length > 0 ? pet.photos[0] : 'https://via.placeholder.com/150',
                     location: pet.last_seen_location || 'Unknown',
                     date: new Date(Number(pet.timestamp) / 1000000).toISOString().split('T')[0],
                     incentive: Number(pet.award_amount),
                     description: pet.description || 'No description available'
                 }));
-
+    
                 console.log("Formatted pets:", formattedPets);
                 setPets(formattedPets);
             } catch (error) {
                 console.error("Error fetching pets:", error);
             }
         };
-
+    
         fetchPets();
     }, []);
 

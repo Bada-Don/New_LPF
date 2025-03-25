@@ -333,6 +333,93 @@ actor New_LPF_backend {
       };
     };
   };
+
+  // Function to authenticate a user by email and password
+  public func authenticateUser(email : Text, password : Text) : async ?Nat {
+    let hashedPassword = hashPassword(password);
+
+    // Find a user with matching email and password
+    for ((id, user) in users.entries()) {
+      if (user.email == email and user.password == hashedPassword) {
+        return ?id;
+      };
+    };
+
+    return null; // No matching user found
+  };
+
+  // Function to get user by email (helpful for checking if email exists)
+  public query func getUserByEmail(email : Text) : async ?Users.User {
+    for ((_, user) in users.entries()) {
+      if (user.email == email) {
+        return ?user;
+      };
+    };
+
+    return null;
+  };
+
+  // Function to update user profile
+  public shared func updateUserProfile(userId : Nat, username : Text, email : Text) : async Bool {
+    switch (users.get(userId)) {
+      case (?user) {
+        let updatedUser = {
+          id = user.id;
+          username = username;
+          email = email;
+          password = user.password;
+          wallet_balance = user.wallet_balance;
+          posts = user.posts;
+          conversations = user.conversations;
+        };
+        users.put(userId, updatedUser);
+        return true;
+      };
+      case null {
+        return false; // User not found
+      };
+    };
+  };
+
+  // Function to update user password
+  public shared func updateUserPassword(userId : Nat, oldPassword : Text, newPassword : Text) : async Bool {
+    switch (users.get(userId)) {
+      case (?user) {
+        let hashedOldPassword = hashPassword(oldPassword);
+        if (user.password != hashedOldPassword) {
+          return false; // Old password doesn't match
+        };
+
+        let hashedNewPassword = hashPassword(newPassword);
+        let updatedUser = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = hashedNewPassword;
+          wallet_balance = user.wallet_balance;
+          posts = user.posts;
+          conversations = user.conversations;
+        };
+        users.put(userId, updatedUser);
+        return true;
+      };
+      case null {
+        return false; // User not found
+      };
+    };
+  };
+
+  // A simple debugging function to your backend to check if any users exist and to see what's in your users hashmap
+  public query func debugUsers() : async Text {
+  var result : Text = "Users in system: " # Nat.toText(users.size());
+  
+  for ((id, user) in users.entries()) {
+    result := result # "\n" # "User " # Nat.toText(id) # ": " # user.username # " (" # user.email # ")";
+  };
+  
+  return result;
+};
+
 };
 
 // --------- Commands to test the canister ---------

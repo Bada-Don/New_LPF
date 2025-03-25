@@ -11,38 +11,105 @@ const AuthPage = () => {
     const [name, setName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    
+
     const navigate = useNavigate();
     const location = useLocation();
 
+    // Check if user is already logged in
+    useEffect(() => {
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+            // User is already logged in, redirect to home
+            navigate('/');
+        }
+    }, [navigate]);
+
+    // Add this somewhere in your component for testing
+    useEffect(() => {
+        const debugUsers = async () => {
+            try {
+                const result = await New_LPF_backend.debugUsers();
+                console.log("Debug users result:", result);
+            } catch (error) {
+                console.error("Error debugging users:", error);
+            }
+        };
+
+        debugUsers();
+    }, []);
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMessage('');
         setIsLoading(true);
-        
+
         try {
             if (isLogin) {
-                // Login logic
-                // Since your backend doesn't have a direct login function,
-                // we'd need to implement one or simulate it for now
-                
-                // Simulated login for demonstration
-                // In a real implementation, you would verify credentials against your backend
-                localStorage.setItem('userId', '1'); // Placeholder user ID
-                localStorage.setItem('username', email.split('@')[0]); // Using email prefix as username
-                
+                console.log("Attempting login with:", email);
+
+                // Login logic using the authenticateUser function
+                const userIdOpt = await New_LPF_backend.authenticateUser(email, password);
+                console.log("Authentication response:", userIdOpt);
+
+                // Check if userIdOpt is null (no user found)
+                if (userIdOpt === null || userIdOpt === undefined) {
+                    console.log("No user found with provided credentials");
+                    setErrorMessage('Invalid email or password');
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Extract the actual userId from the option type
+                // In Motoko, ?Nat returns an optional value which needs to be unwrapped
+                const userId = userIdOpt[0]; // This is how you access the value inside an option
+                console.log("User ID from login:", userId);
+
+                // Get user details
+                const userDetailsOpt = await New_LPF_backend.getUser(userId);
+                console.log("User details response:", userDetailsOpt);
+
+                if (userDetailsOpt === null || userDetailsOpt === undefined) {
+                    console.log("User details not found");
+                    setErrorMessage('User account not found');
+                    setIsLoading(false);
+                    return;
+                }
+
+                const userDetails = userDetailsOpt[0]; // Extract the user details from the option
+
+                // Store user info in localStorage
+                localStorage.setItem('userId', userId.toString());
+                localStorage.setItem('username', userDetails.username);
+
                 console.log('Logged in successfully');
-                navigate('/'); // Redirect to homepage
+                navigate(location.state?.redirectTo || '/');
             } else {
-                // Registration logic using your backend
+                console.log("Attempting registration with:", email);
+
+                // Check if email is already registered
+                const existingUserOpt = await New_LPF_backend.getUserByEmail(email);
+                console.log("Existing user check response:", existingUserOpt);
+
+                // In JavaScript, an optional value from Motoko will be:
+                // - [] or null if the option is empty (no user found)
+                // - [user] if a user was found (the user object is at index 0)
+                if (Array.isArray(existingUserOpt) && existingUserOpt.length > 0) {
+                    console.log("Email already registered");
+                    setErrorMessage('Email is already registered. Please use a different email or login.');
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Registration logic
                 const userId = await New_LPF_backend.registerUser(name, email, password);
-                
+                console.log("Registration successful, user ID:", userId);
+
                 // Store user info in localStorage
                 localStorage.setItem('userId', userId.toString());
                 localStorage.setItem('username', name);
-                
+
                 console.log('Registered successfully with ID:', userId);
-                navigate('/'); // Redirect to homepage
+                navigate(location.state?.redirectTo || '/');
             }
         } catch (error) {
             console.error('Authentication error:', error);
@@ -60,7 +127,7 @@ const AuthPage = () => {
     return (
         <div className="auth-container">
             <div className="auth-sidebar">
-                <div className="logo-container" onClick={navigateToHome} style={{cursor: 'pointer'}}>
+                <div className="logo-container" onClick={navigateToHome} style={{ cursor: 'pointer' }}>
                     <img src={Logo} alt="PetReunite Logo" className="logo" />
                     <h1>PetReunite</h1>
                 </div>
