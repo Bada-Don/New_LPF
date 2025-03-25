@@ -30,6 +30,8 @@ deleteUser()
 
 deletePost()
 
+statusUpdate()
+
 // Current problems
 
 Login system not working properly. Doesn't check password. Doesn't check if the user exists or not. All in all the authentication system is 

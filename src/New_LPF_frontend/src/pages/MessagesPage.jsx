@@ -1,104 +1,213 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './MessagesPage.css';
 import Logo from '../assets/paw-logo.png';
-// import Logo from '../assets/paw-logo.png';
-
-// Sample data for demonstration
-const sampleContacts = [
-    {
-        id: 1,
-        name: 'Sarah Johnson',
-        avatar: 'https://randomuser.me/api/portraits/women/32.jpg',
-        lastMessage: 'I found your dog near the park',
-        timestamp: '10:23 AM',
-        unread: 2
-    },
-{
-    id: 2,
-    name: 'Mike Peterson',
-    avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-    lastMessage: 'Is the reward still available?',
-    timestamp: 'Yesterday',
-    unread: 0
-},
-{
-    id: 3,
-    name: 'Emily Rodriguez',
-    avatar: 'https://randomuser.me/api/portraits/women/22.jpg',
-    lastMessage: 'I think I saw your cat on Main St',
-    timestamp: 'Yesterday',
-    unread: 1
-},
-{
-    id: 4,
-    name: 'David Kim',
-    avatar: 'https://randomuser.me/api/portraits/men/33.jpg',
-    lastMessage: 'Thanks for your help finding Rex',
-    timestamp: 'Mar 18',
-    unread: 0
-},
-{
-    id: 5,
-    name: 'Lisa Wong',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    lastMessage: 'Do you have any more photos of the dog?',
-    timestamp: 'Mar 17',
-    unread: 0
-}
-];
-
-// Sample messages for each contact
-const sampleMessages = {
-    1: [
-        { id: 1, sender: 'them', text: 'Hi there! I think I found your dog in Central Park.', timestamp: '2025-03-20T10:20:00' },
-        { id: 2, sender: 'me', text: 'Oh my goodness! Thank you so much for reaching out. What does the dog look like?', timestamp: '2025-03-20T10:21:00' },
-        { id: 3, sender: 'them', text: 'Golden retriever, wearing a blue collar with a star tag?', timestamp: '2025-03-20T10:22:00' },
-        { id: 4, sender: 'me', text: 'That\'s Max! Where exactly are you? I can come right away!', timestamp: '2025-03-20T10:22:30' },
-        { id: 5, sender: 'them', text: 'I found your dog near the park', timestamp: '2025-03-20T10:23:00' }
-    ],
-    2: [
-        { id: 1, sender: 'them', text: 'Hello, I saw your post about the missing cat.', timestamp: '2025-03-19T14:10:00' },
-        { id: 2, sender: 'me', text: 'Yes, have you seen her?', timestamp: '2025-03-19T14:15:00' },
-        { id: 3, sender: 'them', text: 'Is the reward still available?', timestamp: '2025-03-19T14:20:00' }
-    ],
-    3: [
-        { id: 1, sender: 'me', text: 'Hi, I saw you found a tabby cat?', timestamp: '2025-03-19T09:05:00' },
-        { id: 2, sender: 'them', text: 'Yes, gray tabby with white paws.', timestamp: '2025-03-19T09:10:00' },
-        { id: 3, sender: 'me', text: 'That sounds like my Mittens! Do you have a photo?', timestamp: '2025-03-19T09:15:00' },
-        { id: 4, sender: 'them', text: 'I think I saw your cat on Main St', timestamp: '2025-03-19T09:20:00' }
-    ],
-    4: [
-        { id: 1, sender: 'them', text: 'I\'m so glad Rex is back home with you.', timestamp: '2025-03-18T16:30:00' },
-        { id: 2, sender: 'me', text: 'We are too! He\'s been so happy since coming home.', timestamp: '2025-03-18T16:35:00' },
-        { id: 3, sender: 'them', text: 'That\'s wonderful to hear!', timestamp: '2025-03-18T16:40:00' },
-        { id: 4, sender: 'me', text: 'We can\'t thank you enough for spotting him.', timestamp: '2025-03-18T16:45:00' },
-        { id: 5, sender: 'them', text: 'Thanks for your help finding Rex', timestamp: '2025-03-18T16:50:00' }
-    ],
-    5: [
-        { id: 1, sender: 'them', text: 'I saw your lost dog post. Could you share more photos?', timestamp: '2025-03-17T11:20:00' },
-        { id: 2, sender: 'me', text: 'Of course! Here\'s a few more. [Photo attachment]', timestamp: '2025-03-17T11:25:00' },
-        { id: 3, sender: 'them', text: 'Do you have any more photos of the dog?', timestamp: '2025-03-17T11:30:00' }
-    ]
-};
+import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
+import { Actor, HttpAgent } from "@dfinity/agent";
 
 const MessagesPage = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const initialConvoId = queryParams.get('convoId') ? parseInt(queryParams.get('convoId')) : null;
+
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedContact, setSelectedContact] = useState(1);
+    const [userId, setUserId] = useState(null);
+    const [conversations, setConversations] = useState([]);
+    const [selectedConvoId, setSelectedConvoId] = useState(initialConvoId);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
     const messagesEndRef = useRef(null);
+    
+    // Create a function to get the actor
+    const getActor = async () => {
+        const agent = new HttpAgent({ host: "http://localhost:4943" });
+        await agent.fetchRootKey();
+        
+        return Actor.createActor(idlFactory, {
+            agent,
+            canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+        });
+    };
 
-    // Filter contacts based on search term
-    const filteredContacts = sampleContacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Load messages for selected contact
-    useEffect(() => {
-        if (selectedContact) {
-            setMessages(sampleMessages[selectedContact] || []);
+    const startConversation = async (userId) => {
+        try {
+            const actor = await getActor();
+            const result = await actor.startConversation(userId);
+            return result;
+        } catch (error) {
+            console.error("Error starting conversation:", error);
         }
-    }, [selectedContact]);
+    };
+
+    // Check if user is logged in
+    useEffect(() => {
+        const loggedInUserId = localStorage.getItem('userId');
+        if (!loggedInUserId) {
+            navigate('/auth', { state: { redirectTo: '/messages' } });
+            return;
+        }
+        setUserId(parseInt(loggedInUserId));
+    }, [navigate]);
+
+    // Load user's conversations
+    useEffect(() => {
+        const fetchConversations = async () => {
+            if (!userId) return;
+
+            try {
+                setIsLoading(true);
+                const actor = await getActor();
+
+                // Get user's conversation IDs
+                const convoIds = await actor.getConversationsForUser(userId);
+
+                if (!convoIds || convoIds.length === 0) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                const convoPromises = convoIds.map(async (convoId) => {
+                    try {
+                        // Get conversation details
+                        const convo = await actor.getConversation(convoId);
+
+                        if (!convo) return null;
+
+                        // Get the other user in the conversation
+                        const otherUserId = convo.users.find(id => id !== userId);
+                        if (!otherUserId) return null;
+
+                        // Get the other user's details
+                        const otherUserOpt = await actor.getUser(otherUserId);
+                        if (!otherUserOpt) return null;
+                        const otherUser = otherUserOpt[0];
+
+                        // Get messages for this conversation
+                        const convoMessages = await actor.getMessagesForConversation(convoId);
+
+                        // Get the last message
+                        const lastMessage = convoMessages && convoMessages.length > 0
+                            ? convoMessages[convoMessages.length - 1]
+                            : null;
+
+                        return {
+                            id: convoId,
+                            name: otherUser.username,
+                            avatar: 'https://randomuser.me/api/portraits/people/' + (otherUserId % 100) + '.jpg',
+                            lastMessage: lastMessage ? lastMessage.content : "No messages yet",
+                            timestamp: lastMessage ? formatTimestamp(lastMessage.timestamp) : "No date",
+                            unread: 0
+                        };
+                    } catch (error) {
+                        console.error(`Error fetching conversation ${convoId}:`, error);
+                        return null;
+                    }
+                });
+
+                const fetchedConvos = await Promise.all(convoPromises);
+                const validConvos = fetchedConvos.filter(c => c !== null);
+                setConversations(validConvos);
+
+                if (initialConvoId) {
+                    setSelectedConvoId(initialConvoId);
+                } else if (validConvos.length > 0) {
+                    setSelectedConvoId(validConvos[0].id);
+                }
+            } catch (error) {
+                console.error("Error fetching conversations:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchConversations();
+    }, [userId, initialConvoId]);
+
+    // Load messages for selected conversation
+    useEffect(() => {
+        const fetchMessages = async () => {
+            if (!selectedConvoId) return;
+
+            try {
+                setIsLoading(true);
+                const actor = await getActor();
+
+                // Get all messages for the conversation
+                const convoMessages = await actor.getMessagesForConversation(selectedConvoId);
+
+                if (!convoMessages || convoMessages.length === 0) {
+                    setMessages([]);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Format messages for display
+                const formattedMessages = convoMessages.map(msg => ({
+                    id: msg.id,
+                    sender: msg.senderId === userId ? 'me' : 'them',
+                    text: msg.content,
+                    timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
+                }));
+
+                setMessages(formattedMessages);
+            } catch (error) {
+                console.error("Error fetching messages:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchMessages();
+    }, [selectedConvoId, userId]);
+
+    // Add this useEffect for polling new messages
+    useEffect(() => {
+        if (!selectedConvoId || !userId) return;
+
+        // Poll for new messages every 5 seconds
+        const intervalId = setInterval(async () => {
+            try {
+                const actor = await getActor();
+                
+                // Get latest messages
+                const convoMessages = await actor.getMessagesForConversation(selectedConvoId);
+
+                if (!convoMessages || convoMessages.length === 0) return;
+
+                // Only update if we have more or different messages
+                if (convoMessages.length > messages.length) {
+                    const formattedMessages = convoMessages.map(msg => ({
+                        id: msg.id,
+                        sender: msg.senderId === userId ? 'me' : 'them',
+                        text: msg.content,
+                        timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
+                    }));
+
+                    setMessages(formattedMessages);
+
+                    // Also update the conversation list if needed
+                    const lastMessage = convoMessages[convoMessages.length - 1];
+                    setConversations(prevConvos =>
+                        prevConvos.map(convo =>
+                            convo.id === selectedConvoId
+                                ? {
+                                    ...convo,
+                                    lastMessage: lastMessage.content,
+                                    timestamp: formatTimestamp(lastMessage.timestamp)
+                                }
+                                : convo
+                        )
+                    );
+                }
+            } catch (error) {
+                console.error("Error polling messages:", error);
+            }
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [selectedConvoId, userId, messages.length]);
 
     // Scroll to bottom of messages
     useEffect(() => {
@@ -106,136 +215,215 @@ const MessagesPage = () => {
     }, [messages]);
 
     // Handle sending a new message
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (newMessage.trim() === '') return;
+        if (newMessage.trim() === '' || !selectedConvoId || !userId) return;
 
-        const newMsg = {
-            id: messages.length + 1,
-            sender: 'me',
-            text: newMessage,
-            timestamp: new Date().toISOString()
-        };
+        try {
+            const actor = await getActor();
+            
+            // Send message to backend
+            const messageId = await actor.sendMessage(
+                selectedConvoId,
+                userId,
+                newMessage
+            );
 
-        setMessages([...messages, newMsg]);
-        setNewMessage('');
+            // Add message to UI
+            const newMsg = {
+                id: messageId,
+                sender: 'me',
+                text: newMessage,
+                timestamp: new Date().toISOString()
+            };
+
+            setMessages([...messages, newMsg]);
+            setNewMessage('');
+
+            // Update conversation list with new last message
+            setConversations(conversations.map(convo =>
+                convo.id === selectedConvoId
+                    ? { ...convo, lastMessage: newMessage, timestamp: 'Just now' }
+                    : convo
+            ));
+        } catch (error) {
+            console.error("Error sending message:", error);
+            alert("Failed to send message. Please try again.");
+        }
+    };
+    
+    // Helper function to format timestamp
+    const formatTimestamp = (timestamp) => {
+        const date = new Date(Number(timestamp) / 1000000);
+        const now = new Date();
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return date.toLocaleDateString([], { weekday: 'long' });
+        } else {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
     };
 
-    // Format timestamp for display
+    // Format message time for display
     const formatMessageTime = (timestamp) => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    // Replace these variables
+    const filteredContacts = conversations.filter(contact =>
+        contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // // For development/testing - use sample data if no real data is available
+    // const useRealData = conversations.length > 0;
+
+    // // If we have no real conversations, use sample data for UI development
+    // const displayContacts = useRealData ? filteredContacts : sampleContacts.filter(contact =>
+    //     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+    // );
+
+    // const displaySelectedContact = useRealData
+    //     ? selectedConvoId
+    //     : selectedConvoId || (displayContacts.length > 0 ? displayContacts[0].id : null);
+
+    // const displayMessages = useRealData
+    //     ? messages
+    //     : (displaySelectedContact ? sampleMessages[displaySelectedContact] || [] : []);
+
     return (
         <div className="messages-page">
-        {/* Navbar */}
-        <nav className="navbar">
-        <div className="logo">
-        <img src={Logo} alt="" srcSet="" />
-        <span>PetReunite</span>
-        </div>
-        <div className="nav-buttons">
-        <button className="back-button">Back to Dashboard</button>
-        </div>
-        </nav>
-
-        <div className="messages-container">
-        {/* Contacts Sidebar */}
-        <div className="contacts-sidebar">
-        <div className="search-container">
-        <input
-        type="text"
-        placeholder="Search contacts..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        </div>
-
-        <div className="contacts-list">
-        {filteredContacts.map(contact => (
-            <div
-            key={contact.id}
-            className={`contact-item ${selectedContact === contact.id ? 'active' : ''}`}
-            onClick={() => setSelectedContact(contact.id)}
-            >
-            <div className="contact-avatar">
-            <img src={contact.avatar} alt={contact.name} />
-            {contact.unread > 0 && (
-                <span className="unread-badge">{contact.unread}</span>
-            )}
-            </div>
-            <div className="contact-info">
-            <div className="contact-header">
-            <h3>{contact.name}</h3>
-            <span className="timestamp">{contact.timestamp}</span>
-            </div>
-            <p className="last-message">{contact.lastMessage}</p>
-            </div>
-            </div>
-        ))}
-        </div>
-        </div>
-
-        {/* Chat Area */}
-        <div className="chat-area">
-        {selectedContact ? (
-            <>
-            {/* Chat Header */}
-            <div className="chat-header">
-            <div className="chat-contact-info">
-            <img
-            src={sampleContacts.find(c => c.id === selectedContact)?.avatar}
-            alt={sampleContacts.find(c => c.id === selectedContact)?.name}
-            />
-            <h2>{sampleContacts.find(c => c.id === selectedContact)?.name}</h2>
-            </div>
-            </div>
-
-            {/* Messages */}
-            <div className="messages-list">
-            {messages.map(message => (
-                <div
-                key={message.id}
-                className={`message ${message.sender === 'me' ? 'sent' : 'received'}`}
-                >
-                <div className="message-content">
-                <p>{message.text}</p>
-                <span className="message-time">
-                {formatMessageTime(message.timestamp)}
-                </span>
+            {/* Navbar */}
+            <nav className="navbar">
+                <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+                    <img src={Logo} alt="PetReunite Logo" />
+                    <span>PetReunite</span>
                 </div>
+                <div className="nav-buttons">
+                    <button className="back-button" onClick={() => navigate('/')}>
+                        Back to Dashboard
+                    </button>
                 </div>
-            ))}
-            <div ref={messagesEndRef} />
-            </div>
+            </nav>
 
-            {/* Message Input */}
-            <form className="message-input" onSubmit={handleSendMessage}>
-            <input
-            type="text"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            />
-            <button
-            type="submit"
-            className="send-button"
-            disabled={newMessage.trim() === ''}
-            >
-            Send
-            </button>
-            </form>
-            </>
-        ) : (
-            <div className="no-chat-selected">
-            <p>Select a conversation to start messaging</p>
+            <div className="messages-container">
+                {/* Contacts Sidebar */}
+                <div className="contacts-sidebar">
+                    <div className="search-container">
+                        <input
+                            type="text"
+                            placeholder="Search contacts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="contacts-list">
+                        {isLoading && conversations.length === 0 ? (
+                            <div className="loading-contacts">Loading conversations...</div>
+                        ) : conversations.length === 0 ? (
+                            <div className="no-contacts">
+                                <p>No conversations yet</p>
+                                <p>Start a conversation by contacting a pet owner</p>
+                            </div>
+                        ) : (
+                            filteredContacts.map(contact => (
+                                <div
+                                    key={contact.id}
+                                    className={`contact-item ${selectedConvoId === contact.id ? 'active' : ''}`}
+                                    onClick={() => setSelectedConvoId(contact.id)}
+                                >
+                                    <div className="contact-avatar">
+                                        <img src={contact.avatar} alt={contact.name} />
+                                        {contact.unread > 0 && (
+                                            <span className="unread-badge">{contact.unread}</span>
+                                        )}
+                                    </div>
+                                    <div className="contact-info">
+                                        <div className="contact-header">
+                                            <h3>{contact.name}</h3>
+                                            <span className="timestamp">{contact.timestamp}</span>
+                                        </div>
+                                        <p className="last-message">{contact.lastMessage}</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Chat Area */}
+                <div className="chat-area">
+                    {selectedConvoId ? (
+                        <>
+                            {/* Chat Header */}
+                            <div className="chat-header">
+                                <div className="chat-contact-info">
+                                    <img
+                                        src={conversations.find(c => c.id === selectedConvoId)?.avatar}
+                                        alt={conversations.find(c => c.id === selectedConvoId)?.name}
+                                    />
+                                    <h2>{conversations.find(c => c.id === selectedConvoId)?.name}</h2>
+                                </div>
+                            </div>
+
+                            {/* Messages */}
+                            <div className="messages-list">
+                                {isLoading && messages.length === 0 ? (
+                                    <div className="loading-messages">Loading messages...</div>
+                                ) : messages.length === 0 ? (
+                                    <div className="no-messages">
+                                        <p>No messages in this conversation</p>
+                                        <p>Start the conversation by sending a message</p>
+                                    </div>
+                                ) : (
+                                    messages.map(message => (
+                                        <div
+                                            key={message.id}
+                                            className={`message ${message.sender === 'me' ? 'sent' : 'received'}`}
+                                        >
+                                            <div className="message-content">
+                                                <p>{message.text}</p>
+                                                <span className="message-time">
+                                                    {formatMessageTime(message.timestamp)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Message Input */}
+                            <form className="message-input" onSubmit={handleSendMessage}>
+                                <input
+                                    type="text"
+                                    placeholder="Type a message..."
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                />
+                                <button
+                                    type="submit"
+                                    className="send-button"
+                                    disabled={newMessage.trim() === '' || isLoading}
+                                >
+                                    Send
+                                </button>
+                            </form>
+                        </>
+                    ) : (
+                        <div className="no-chat-selected">
+                            <p>Select a conversation to start messaging</p>
+                        </div>
+                    )}
+                </div>
             </div>
-        )}
-        </div>
-        </div>
         </div>
     );
 };
-
 export default MessagesPage;

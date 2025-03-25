@@ -80,6 +80,44 @@ const HomePage = () => {
         setCurrentUser(null);
     };
 
+    const handleContactClick = async (petOwnerId, petId) => {
+        // Check if user is logged in
+        const userId = localStorage.getItem('userId');
+
+        if (!userId) {
+            // Redirect to login if not logged in
+            navigate('/auth', { state: { redirectTo: '/' } });
+            return;
+        }
+
+        // Don't allow contacting your own post
+        if (parseInt(userId) === petOwnerId) {
+            alert("This is your own pet post.");
+            return;
+        }
+
+        try {
+            // Start a conversation between current user and pet owner
+            const convoId = await New_LPF_backend.startConversation(
+                parseInt(userId),
+                petOwnerId
+            );
+
+            // Send an initial message about the pet
+            await New_LPF_backend.sendMessage(
+                convoId,
+                parseInt(userId),
+                `Hello, I'm contacting you about your pet post (ID: ${petId}). I may have information that could help.`
+            );
+
+            // Redirect to messages page with conversation ID
+            navigate(`/messages?convoId=${convoId}`);
+        } catch (error) {
+            console.error('Error starting conversation:', error);
+            alert('Failed to start conversation. Please try again.');
+        }
+    };
+
     // Handle report pet button click
     const handleReportPetClick = () => {
         if (isLoggedIn) {
@@ -106,22 +144,23 @@ const HomePage = () => {
                 console.log("Fetching pets...");
                 // Create an agent for local development
                 const agent = new HttpAgent({ host: "http://localhost:4943" });
-    
+
                 // IMPORTANT: This line is crucial for local development
                 await agent.fetchRootKey();
-    
+
                 const actor = Actor.createActor(idlFactory, {
                     agent,
                     canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
                 });
-    
+
                 console.log("Calling backend...");
                 const petPosts = await actor.getAllPetPosts();
                 console.log("Backend Response:", petPosts);
-    
+
                 // Map data to fit frontend structure
                 const formattedPets = petPosts.map(pet => ({
                     id: Number(pet.id),
+                    userId: Number(pet.userId), // Make sure this is included
                     name: pet.petName || 'Unknown',
                     type: pet.pet_type || 'Unknown',
                     // Properly handle variant types from Motoko
@@ -132,14 +171,14 @@ const HomePage = () => {
                     incentive: Number(pet.award_amount),
                     description: pet.description || 'No description available'
                 }));
-    
+
                 console.log("Formatted pets:", formattedPets);
                 setPets(formattedPets);
             } catch (error) {
                 console.error("Error fetching pets:", error);
             }
         };
-    
+
         fetchPets();
     }, []);
 
@@ -253,7 +292,12 @@ const HomePage = () => {
                                         <span className="pet-incentive">${pet.incentive} Reward</span>
                                     )}
                                 </div>
-                                <button className="contact-button">Contact</button>
+                                <button
+                                    className="contact-button"
+                                    onClick={() => handleContactClick(pet.userId, pet.id)}
+                                >
+                                    Contact
+                                </button>
                             </div>
                         </div>
                     ))}

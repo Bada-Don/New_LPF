@@ -411,14 +411,55 @@ actor New_LPF_backend {
 
   // A simple debugging function to your backend to check if any users exist and to see what's in your users hashmap
   public query func debugUsers() : async Text {
-  var result : Text = "Users in system: " # Nat.toText(users.size());
-  
-  for ((id, user) in users.entries()) {
-    result := result # "\n" # "User " # Nat.toText(id) # ": " # user.username # " (" # user.email # ")";
+    var result : Text = "Users in system: " # Nat.toText(users.size());
+
+    for ((id, user) in users.entries()) {
+      result := result # "\n" # "User " # Nat.toText(id) # ": " # user.username # " (" # user.email # ")";
+    };
+
+    return result;
   };
-  
-  return result;
-};
+
+  // Get a specific conversation by ID
+  public query func getConversation(convoId : Nat) : async ?Conversation {
+    return conversations.get(convoId);
+  };
+
+  // Get conversations for a specific user
+  public query func getConversationsForUser(userId : Nat) : async [Nat] {
+    switch (users.get(userId)) {
+      case (?user) {
+        return user.conversations;
+      };
+      case null {
+        return []; // User not found
+      };
+    };
+  };
+
+  // Get messages for a specific conversation
+  public query func getMessagesForConversation(convoId : Nat) : async [Message.Message] {
+    switch (conversations.get(convoId)) {
+      case (?convo) {
+        return convo.messages;
+      };
+      case null {
+        return []; // Conversation not found
+      };
+    };
+  };
+
+  // Get participants of a conversation
+  public query func getConversationParticipants(convoId : Nat) : async [Nat] {
+    switch (conversations.get(convoId)) {
+      case (?convo) {
+        return convo.users;
+      };
+      case null {
+        return []; // Conversation not found
+      };
+    };
+  };
 
 };
 
