@@ -208,7 +208,7 @@ actor New_LPF_backend {
     return Iter.toArray(petPosts.vals());
   };
 
-  public func startConversation(user1 : Nat, user2 : Nat) : async Nat {
+  public shared func startConversation(user1 : Nat, user2 : Nat) : async Nat {
     let convoId = nextConvoId;
 
     let newConversation : Conversation = {

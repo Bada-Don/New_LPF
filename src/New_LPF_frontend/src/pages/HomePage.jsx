@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import './HomePage.css';
 import Logo from '../assets/paw-logo.png';
 import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
+import { New_LPF_backend } from '../../../declarations/New_LPF_backend';
 import { Actor, HttpAgent } from "@dfinity/agent";
 import { useNavigate } from 'react-router-dom'; // Add this import
+
 
 
 const HomePage = () => {
@@ -28,7 +30,7 @@ const HomePage = () => {
         }
 
         // Replace with your actual canister ID from dfx deploy
-        const canisterId = "bkyz2-fmaaa-aaaaa-qaaaq-cai";
+        const canisterId = process.env.CANISTER_ID_NEW_LPF_FRONTEND;
 
         return Actor.createActor(idlFactory, {
             agent,
@@ -95,10 +97,13 @@ const HomePage = () => {
             alert("This is your own pet post.");
             return;
         }
-
+        let convoId;
         try {
             // Start a conversation between current user and pet owner
-            const convoId = await New_LPF_backend.startConversation(
+            //debuging
+            console.log(`user id : ${userId} / petownerid: ${petOwnerId}`)
+             
+            convoId = await New_LPF_backend.startConversation(
                 parseInt(userId),
                 petOwnerId
             );
@@ -113,7 +118,7 @@ const HomePage = () => {
             // Redirect to messages page with conversation ID
             navigate(`/messages?convoId=${convoId}`);
         } catch (error) {
-            console.error('Error starting conversation:', error);
+            console.error('Error starting conversation in homepage line 116:', error);
             alert('Failed to start conversation. Please try again.');
         }
     };
@@ -150,7 +155,7 @@ const HomePage = () => {
 
                 const actor = Actor.createActor(idlFactory, {
                     agent,
-                    canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                    canisterId: process.env.CANISTER_ID_NEW_LPF_BACKEND,
                 });
 
                 console.log("Calling backend...");

@@ -27,7 +27,7 @@ const MessagesPage = () => {
         
         return Actor.createActor(idlFactory, {
             agent,
-            canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+            canisterId: process.env.CANISTER_ID_NEW_LPF_BACKEND,
         });
     };
 
@@ -37,7 +37,7 @@ const MessagesPage = () => {
             const result = await actor.startConversation(userId);
             return result;
         } catch (error) {
-            console.error("Error starting conversation:", error);
+            console.error("Error starting conversation in start conversation function in messagepage frontend:", error);
         }
     };
 
@@ -121,7 +121,7 @@ const MessagesPage = () => {
                 setIsLoading(false);
             }
         };
-
+        startConversation(userId);
         fetchConversations();
     }, [userId, initialConvoId]);
 

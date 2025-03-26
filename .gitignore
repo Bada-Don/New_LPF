@@ -22,4 +22,4 @@ dist/
 .svelte-kit/
 
 # environment variables
-# .env  #I need to push this so that they can test the code
+.env 

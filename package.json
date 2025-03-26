@@ -16,6 +16,7 @@
     "src/New_LPF_frontend"
   ],
   "dependencies": {
+    "@dfinity/agent": "^2.4.0",
     "framer-motion": "^12.5.0",
     "lucide-react": "^0.483.0",
     "node-fetch": "^2.7.0",
