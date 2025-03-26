@@ -1,0 +1,49 @@
+  public func startConversation(user1 : Nat, user2 : Nat) : async Nat {
+    let convoId = nextConvoId;
+
+    let newConversation : Conversation = {
+      id = convoId;
+      users = [user1, user2];
+      messages = [];
+      proofs = [];
+      reward_transaction = null;
+    };
+
+    conversations.put(convoId, newConversation);
+    nextConvoId += 1;
+
+    // Add conversation to both users' conversation lists
+    switch (users.get(user1)) {
+      case (?user) {
+        let updatedUser = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = user.password;
+          wallet_balance = user.wallet_balance;
+          posts = user.posts;
+          conversations = Array.append(user.conversations, [convoId]);
+        };
+        users.put(user1, updatedUser);
+      };
+      case null { /* User not found */ };
+    };
+
+    switch (users.get(user2)) {
+      case (?user) {
+        let updatedUser = {
+          id = user.id;
+          username = user.username;
+          email = user.email;
+          password = user.password;
+          wallet_balance = user.wallet_balance;
+          posts = user.posts;
+          conversations = Array.append(user.conversations, [convoId]);
+        };
+        users.put(user2, updatedUser);
+      };
+      case null { /* User not found */ };
+    };
+
+    return convoId;
+  };

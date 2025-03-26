@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './HomePage.css';
 import Logo from '../assets/paw-logo.png';
 import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
+import { New_LPF_backend } from "../../../declarations/New_LPF_backend";
 import { Actor, HttpAgent } from "@dfinity/agent";
 import { useNavigate } from 'react-router-dom'; // Add this import
 
@@ -28,7 +29,7 @@ const HomePage = () => {
         }
 
         // Replace with your actual canister ID from dfx deploy
-        const canisterId = "bkyz2-fmaaa-aaaaa-qaaaq-cai";
+        const canisterId = process.env.CANISTER_ID_NEW_LPF_BACKEND;
 
         return Actor.createActor(idlFactory, {
             agent,
@@ -84,6 +85,10 @@ const HomePage = () => {
         // Check if user is logged in
         const userId = localStorage.getItem('userId');
 
+        console.log("User ID:", parseInt(userId), "| Type:", typeof parseInt(userId));
+        console.log("Pet Owner ID:", petOwnerId, "| Type:", typeof petOwnerId);
+
+
         if (!userId) {
             // Redirect to login if not logged in
             navigate('/auth', { state: { redirectTo: '/' } });
@@ -98,20 +103,29 @@ const HomePage = () => {
 
         try {
             // Start a conversation between current user and pet owner
-            const convoId = await New_LPF_backend.startConversation(
+            const result = await New_LPF_backend.startConversation(
                 parseInt(userId),
                 petOwnerId
             );
-
-            // Send an initial message about the pet
-            await New_LPF_backend.sendMessage(
-                convoId,
-                parseInt(userId),
-                `Hello, I'm contacting you about your pet post (ID: ${petId}). I may have information that could help.`
-            );
-
-            // Redirect to messages page with conversation ID
-            navigate(`/messages?convoId=${convoId}`);
+            
+            // Check if result is successful
+            if ('ok' in result) {
+                const convoId = result.ok;
+                
+                // Send an initial message about the pet
+                await New_LPF_backend.sendMessage(
+                    convoId,
+                    parseInt(userId),
+                    `Hello, I'm contacting you about your pet post (ID: ${petId}). I may have information that could help.`
+                );
+                
+                // Redirect to messages page with conversation ID
+                navigate(`/messages?convoId=${convoId}`);
+            } else {
+                // Handle the error case
+                console.error('Error from backend:', result.err);
+                alert(`Failed to start conversation: ${result.err}`);
+            }
         } catch (error) {
             console.error('Error starting conversation:', error);
             alert('Failed to start conversation. Please try again.');
@@ -150,7 +164,7 @@ const HomePage = () => {
 
                 const actor = Actor.createActor(idlFactory, {
                     agent,
-                    canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                    canisterId: process.env.CANISTER_ID_NEW_LPF_BACKEND,
                 });
 
                 console.log("Calling backend...");

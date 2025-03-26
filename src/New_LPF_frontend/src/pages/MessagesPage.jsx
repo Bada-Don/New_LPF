@@ -19,26 +19,16 @@ const MessagesPage = () => {
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const messagesEndRef = useRef(null);
-    
+
     // Create a function to get the actor
     const getActor = async () => {
         const agent = new HttpAgent({ host: "http://localhost:4943" });
         await agent.fetchRootKey();
-        
+
         return Actor.createActor(idlFactory, {
             agent,
             canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
         });
-    };
-
-    const startConversation = async (userId) => {
-        try {
-            const actor = await getActor();
-            const result = await actor.startConversation(userId);
-            return result;
-        } catch (error) {
-            console.error("Error starting conversation:", error);
-        }
     };
 
     // Check if user is logged in
@@ -52,62 +42,104 @@ const MessagesPage = () => {
     }, [navigate]);
 
     // Load user's conversations
+    // Load user's conversations
     useEffect(() => {
         const fetchConversations = async () => {
             if (!userId) return;
 
             try {
                 setIsLoading(true);
+                console.log("Fetching conversations for user:", userId);
                 const actor = await getActor();
 
                 // Get user's conversation IDs
                 const convoIds = await actor.getConversationsForUser(userId);
+                console.log("Conversation IDs received:", convoIds);
 
                 if (!convoIds || convoIds.length === 0) {
+                    console.log("No conversations found for user");
                     setIsLoading(false);
+                    setConversations([]);  // Make sure we set empty array
                     return;
                 }
 
                 const convoPromises = convoIds.map(async (convoId) => {
                     try {
+                        console.log(`Fetching details for conversation ${convoId}`);
                         // Get conversation details
-                        const convo = await actor.getConversation(convoId);
+                        const convoResult = await actor.getConversation(convoId);
+                        console.log(`Conversation ${convoId} details:`, convoResult);
 
-                        if (!convo) return null;
+                        if (!convoResult) {
+                            console.log(`No conversation found with ID ${convoId}`);
+                            return null;
+                        }
 
                         // Get the other user in the conversation
-                        const otherUserId = convo.users.find(id => id !== userId);
-                        if (!otherUserId) return null;
+                        const otherUserId = convoResult.users.find(id => id !== userId);
+                        console.log(`Other user ID in conversation:`, otherUserId);
+
+                        if (!otherUserId) {
+                            console.log(`Could not find other user in conversation ${convoId}`);
+                            return null;
+                        }
 
                         // Get the other user's details
-                        const otherUserOpt = await actor.getUser(otherUserId);
-                        if (!otherUserOpt) return null;
-                        const otherUser = otherUserOpt[0];
+                        console.log(`Fetching details for user ${otherUserId}`);
+                        let username = "Unknown User";
+
+                        try {
+                            const otherUserOpt = await actor.getUser(otherUserId);
+                            console.log(`User ${otherUserId} details:`, otherUserOpt);
+
+                            // Handle Motoko optional type - check if we got a user object back
+                            if (otherUserOpt) {
+                                // This is for the case where it's a proper object with fields
+                                if (typeof otherUserOpt === 'object' && otherUserOpt.username) {
+                                    username = otherUserOpt.username;
+                                }
+                                // This is for the case where it's an array with the first item being the user
+                                else if (Array.isArray(otherUserOpt) && otherUserOpt.length > 0 && otherUserOpt[0].username) {
+                                    username = otherUserOpt[0].username;
+                                }
+                            } else {
+                                console.log(`User ${otherUserId} not found or no username`);
+                            }
+                        } catch (userError) {
+                            console.error(`Error getting user ${otherUserId}:`, userError);
+                            // Continue with default username
+                        }
 
                         // Get messages for this conversation
+                        console.log(`Fetching messages for conversation ${convoId}`);
                         const convoMessages = await actor.getMessagesForConversation(convoId);
+                        console.log(`Messages for conversation ${convoId}:`, convoMessages ? convoMessages.length : 0);
 
                         // Get the last message
                         const lastMessage = convoMessages && convoMessages.length > 0
                             ? convoMessages[convoMessages.length - 1]
                             : null;
 
-                        return {
+                        const result = {
                             id: convoId,
-                            name: otherUser.username,
+                            name: username,
                             avatar: 'https://randomuser.me/api/portraits/people/' + (otherUserId % 100) + '.jpg',
                             lastMessage: lastMessage ? lastMessage.content : "No messages yet",
                             timestamp: lastMessage ? formatTimestamp(lastMessage.timestamp) : "No date",
                             unread: 0
                         };
+
+                        console.log(`Successfully prepared conversation ${convoId}:`, result);
+                        return result;
                     } catch (error) {
                         console.error(`Error fetching conversation ${convoId}:`, error);
                         return null;
                     }
                 });
-
                 const fetchedConvos = await Promise.all(convoPromises);
+                console.log("Fetched conversations:", fetchedConvos);
                 const validConvos = fetchedConvos.filter(c => c !== null);
+                console.log("Valid conversations:", validConvos);
                 setConversations(validConvos);
 
                 if (initialConvoId) {
@@ -117,6 +149,7 @@ const MessagesPage = () => {
                 }
             } catch (error) {
                 console.error("Error fetching conversations:", error);
+                setConversations([]);  // Set empty array on error
             } finally {
                 setIsLoading(false);
             }
@@ -162,15 +195,14 @@ const MessagesPage = () => {
         fetchMessages();
     }, [selectedConvoId, userId]);
 
-    // Add this useEffect for polling new messages
+    // Poll for new messages every 5 seconds
     useEffect(() => {
         if (!selectedConvoId || !userId) return;
 
-        // Poll for new messages every 5 seconds
         const intervalId = setInterval(async () => {
             try {
                 const actor = await getActor();
-                
+
                 // Get latest messages
                 const convoMessages = await actor.getMessagesForConversation(selectedConvoId);
 
@@ -221,13 +253,17 @@ const MessagesPage = () => {
 
         try {
             const actor = await getActor();
-            
+
             // Send message to backend
             const messageId = await actor.sendMessage(
                 selectedConvoId,
                 userId,
                 newMessage
             );
+
+            if (messageId === 0) {
+                throw new Error("Failed to send message");
+            }
 
             // Add message to UI
             const newMsg = {
@@ -251,7 +287,7 @@ const MessagesPage = () => {
             alert("Failed to send message. Please try again.");
         }
     };
-    
+
     // Helper function to format timestamp
     const formatTimestamp = (timestamp) => {
         const date = new Date(Number(timestamp) / 1000000);
@@ -275,26 +311,10 @@ const MessagesPage = () => {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
-    // Replace these variables
+    // Filter contacts based on search term
     const filteredContacts = conversations.filter(contact =>
         contact.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    // // For development/testing - use sample data if no real data is available
-    // const useRealData = conversations.length > 0;
-
-    // // If we have no real conversations, use sample data for UI development
-    // const displayContacts = useRealData ? filteredContacts : sampleContacts.filter(contact =>
-    //     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
-    // );
-
-    // const displaySelectedContact = useRealData
-    //     ? selectedConvoId
-    //     : selectedConvoId || (displayContacts.length > 0 ? displayContacts[0].id : null);
-
-    // const displayMessages = useRealData
-    //     ? messages
-    //     : (displaySelectedContact ? sampleMessages[displaySelectedContact] || [] : []);
 
     return (
         <div className="messages-page">
@@ -426,4 +446,5 @@ const MessagesPage = () => {
         </div>
     );
 };
+
 export default MessagesPage;

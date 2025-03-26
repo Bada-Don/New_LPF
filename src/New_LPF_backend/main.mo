@@ -7,6 +7,7 @@ import HashMap "mo:base/HashMap";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
 import Iter "mo:base/Iter";
+import Result "mo:base/Result";
 
 actor New_LPF_backend {
 
@@ -208,7 +209,34 @@ actor New_LPF_backend {
     return Iter.toArray(petPosts.vals());
   };
 
-  public func startConversation(user1 : Nat, user2 : Nat) : async Nat {
+  public func startConversation(user1 : Nat, user2 : Nat) : async Result.Result<Nat, Text> {
+    // Check if both users exist
+    switch (users.get(user1)) {
+      case null { return #err("User 1 not found") };
+      case _ {};
+    };
+
+    switch (users.get(user2)) {
+      case null { return #err("User 2 not found") };
+      case _ {};
+    };
+
+    // Check if a conversation already exists between these users
+    let existingConvo = Iter.toArray(
+      Iter.filter(
+        conversations.vals(),
+        func(c : Conversation) : Bool {
+          (Array.indexOf<Nat>(user1, c.users, Nat.equal) != null and 
+           Array.indexOf<Nat>(user2, c.users, Nat.equal) != null)
+        }
+      )
+    );
+
+    if (existingConvo.size() > 0) {
+      // Return the ID of the existing conversation
+      return #ok(existingConvo[0].id);
+    };
+
     let convoId = nextConvoId;
 
     let newConversation : Conversation = {
@@ -236,7 +264,10 @@ actor New_LPF_backend {
         };
         users.put(user1, updatedUser);
       };
-      case null { /* User not found */ };
+      case null {
+        // This shouldn't happen as we checked above, but handle it anyway
+        return #err("Failed to update user 1 with conversation");
+      };
     };
 
     switch (users.get(user2)) {
@@ -252,11 +283,14 @@ actor New_LPF_backend {
         };
         users.put(user2, updatedUser);
       };
-      case null { /* User not found */ };
+      case null {
+        // This shouldn't happen as we checked above, but handle it anyway
+        return #err("Failed to update user 2 with conversation");
+      };
     };
 
-    return convoId;
-  };
+    return #ok(convoId);
+};
 
   public func resolvePetPost(postId : Nat, resolverId : Nat) : async Bool {
     switch (petPosts.get(postId)) {
