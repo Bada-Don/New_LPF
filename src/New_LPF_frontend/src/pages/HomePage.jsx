@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './HomePage.css';
+import { ConnectWallet } from "@nfid/identitykit/react";
 import Logo from '../assets/paw-logo.png';
 import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
 import { New_LPF_backend } from "../../../declarations/New_LPF_backend";
 import { Actor, HttpAgent } from "@dfinity/agent";
 import { useNavigate } from 'react-router-dom'; // Add this import
-
+import { useAuth } from '../StateManagement/useContext/useClient';
+const ConnectBtn = ({ onClick }) => (
+ <button className="login-button"  onClick={onClick}>Login</button>
+);
 
 const HomePage = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +19,7 @@ const HomePage = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
     const [pets, setPets] = useState([]);
-
+    const { isAuthenticated, principal, actor } = useAuth();
     const navigate = useNavigate();
 
     // Create the agent and actor
@@ -69,9 +73,9 @@ const HomePage = () => {
     }, []);
 
     // Handle login button click
-    const handleLoginClick = () => {
-        navigate('/auth');
-    };
+    // const handleLoginClick = () => {
+    //     navigate('/auth');
+    // };
 
     // Handle logout
     const handleLogout = () => {
@@ -207,14 +211,21 @@ const HomePage = () => {
                 </div>
                 <div className="nav-buttons">
                     <button className="cta-button" onClick={handleReportPetClick}>Report Pet</button>
-                    {isLoggedIn ? (
+                    {isAuthenticated ? (
                         <>
                             <button className="account-button" onClick={handleMyAccountClick}>My Account</button>
                             <button className="inbox-button" onClick={handleInboxClick}>Inbox</button>
                             <button className="logout-button" onClick={handleLogout}>Logout</button>
                         </>
                     ) : (
-                        <button className="login-button" onClick={handleLoginClick}>Login</button>
+                        
+                        <div className="hidden font-posterama md:block">
+                            <ConnectWallet
+                                connectButtonComponent={ConnectBtn}
+                                className="rounded-full bg-black"
+                            />
+                        </div>
+                   
                     )}
                 </div>
             </nav>
