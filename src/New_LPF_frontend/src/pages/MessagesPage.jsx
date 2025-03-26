@@ -4,12 +4,15 @@ import './MessagesPage.css';
 import Logo from '../assets/paw-logo.png';
 import { idlFactory } from '../../../declarations/New_LPF_backend/index.js';
 import { Actor, HttpAgent } from "@dfinity/agent";
+import { New_LPF_backend } from "../../../declarations/New_LPF_backend"; // Direct import
 
 const MessagesPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const initialConvoId = queryParams.get('convoId') ? parseInt(queryParams.get('convoId')) : null;
+    
+    console.log("Initial conversation ID from URL:", initialConvoId);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [userId, setUserId] = useState(null);
@@ -19,22 +22,25 @@ const MessagesPage = () => {
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const messagesEndRef = useRef(null);
-
+    
     // Create a function to get the actor
     const getActor = async () => {
         const agent = new HttpAgent({ host: "http://localhost:4943" });
         await agent.fetchRootKey();
-
+        
         return Actor.createActor(idlFactory, {
             agent,
-            canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+            canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai", // Use hardcoded ID
         });
     };
 
     // Check if user is logged in
     useEffect(() => {
         const loggedInUserId = localStorage.getItem('userId');
-        if (!loggedInUserId) {
+        console.log("Logged in user ID from localStorage:", loggedInUserId);
+        
+        if (loggedInUserId === null || loggedInUserId === undefined || loggedInUserId === '') {
+            console.log("No user ID found, redirecting to auth page");
             navigate('/auth', { state: { redirectTo: '/messages' } });
             return;
         }
@@ -42,27 +48,59 @@ const MessagesPage = () => {
     }, [navigate]);
 
     // Load user's conversations
-    // Load user's conversations
     useEffect(() => {
         const fetchConversations = async () => {
-            if (!userId) return;
+            if (userId === null || userId === undefined) {
+                console.log("No user ID, skipping conversation fetch");
+                return;
+            }
 
             try {
                 setIsLoading(true);
                 console.log("Fetching conversations for user:", userId);
-                const actor = await getActor();
-
-                // Get user's conversation IDs
-                const convoIds = await actor.getConversationsForUser(userId);
-                console.log("Conversation IDs received:", convoIds);
-
-                if (!convoIds || convoIds.length === 0) {
-                    console.log("No conversations found for user");
-                    setIsLoading(false);
-                    setConversations([]);  // Make sure we set empty array
-                    return;
+                
+                // Try using the direct import first
+                try {
+                    console.log("Getting user conversations using direct import");
+                    const convoIds = await New_LPF_backend.getConversationsForUser(userId);
+                    console.log("Conversation IDs received:", convoIds);
+                    
+                    if (!convoIds || convoIds.length === 0) {
+                        console.log("No conversations found for user");
+                        setIsLoading(false);
+                        setConversations([]);
+                        return;
+                    }
+                    
+                    processConversations(convoIds);
+                } catch (directError) {
+                    console.error("Error with direct import, trying actor pattern:", directError);
+                    
+                    // Fallback to actor pattern
+                    const actor = await getActor();
+                    const convoIds = await actor.getConversationsForUser(userId);
+                    console.log("Conversation IDs received using actor:", convoIds);
+                    
+                    if (!convoIds || convoIds.length === 0) {
+                        console.log("No conversations found for user");
+                        setIsLoading(false);
+                        setConversations([]);
+                        return;
+                    }
+                    
+                    processConversations(convoIds);
                 }
-
+            } catch (error) {
+                console.error("Error fetching conversations:", error);
+                setIsLoading(false);
+                setConversations([]);
+            }
+        };
+        
+        const processConversations = async (convoIds) => {
+            try {
+                const actor = await getActor();
+                
                 const convoPromises = convoIds.map(async (convoId) => {
                     try {
                         console.log(`Fetching details for conversation ${convoId}`);
@@ -75,11 +113,20 @@ const MessagesPage = () => {
                             return null;
                         }
 
-                        // Get the other user in the conversation
-                        const otherUserId = convoResult.users.find(id => id !== userId);
-                        console.log(`Other user ID in conversation:`, otherUserId);
+                        // Check if the result is an array and get the first element
+                        const convoData = Array.isArray(convoResult) ? convoResult[0] : convoResult;
 
-                        if (!otherUserId) {
+                        if (!convoData || !convoData.users) {
+                            console.log(`Invalid conversation structure for ID ${convoId}:`, convoData);
+                            return null;
+                        }
+
+                        // Get the other user in the conversation
+                        const userIdNum = Number(userId);
+                        const otherUserId = convoData.users.find(id => Number(id) !== userIdNum);
+                        console.log(`Current user ID: ${userIdNum}, Other user ID in conversation:`, otherUserId);
+
+                        if (otherUserId === undefined) {
                             console.log(`Could not find other user in conversation ${convoId}`);
                             return null;
                         }
@@ -87,23 +134,20 @@ const MessagesPage = () => {
                         // Get the other user's details
                         console.log(`Fetching details for user ${otherUserId}`);
                         let username = "Unknown User";
-
+                        
                         try {
                             const otherUserOpt = await actor.getUser(otherUserId);
                             console.log(`User ${otherUserId} details:`, otherUserOpt);
-
-                            // Handle Motoko optional type - check if we got a user object back
+                            
+                            // Handle different possible formats of the response
                             if (otherUserOpt) {
-                                // This is for the case where it's a proper object with fields
-                                if (typeof otherUserOpt === 'object' && otherUserOpt.username) {
-                                    username = otherUserOpt.username;
+                                if (typeof otherUserOpt === 'object') {
+                                    if (otherUserOpt.username) {
+                                        username = otherUserOpt.username;
+                                    } else if (Array.isArray(otherUserOpt) && otherUserOpt.length > 0 && otherUserOpt[0].username) {
+                                        username = otherUserOpt[0].username;
+                                    }
                                 }
-                                // This is for the case where it's an array with the first item being the user
-                                else if (Array.isArray(otherUserOpt) && otherUserOpt.length > 0 && otherUserOpt[0].username) {
-                                    username = otherUserOpt[0].username;
-                                }
-                            } else {
-                                console.log(`User ${otherUserId} not found or no username`);
                             }
                         } catch (userError) {
                             console.error(`Error getting user ${otherUserId}:`, userError);
@@ -123,12 +167,12 @@ const MessagesPage = () => {
                         const result = {
                             id: convoId,
                             name: username,
-                            avatar: 'https://randomuser.me/api/portraits/people/' + (otherUserId % 100) + '.jpg',
+                            avatar: 'https://randomuser.me/api/portraits/people/' + (Number(otherUserId) % 100) + '.jpg',
                             lastMessage: lastMessage ? lastMessage.content : "No messages yet",
                             timestamp: lastMessage ? formatTimestamp(lastMessage.timestamp) : "No date",
                             unread: 0
                         };
-
+                        
                         console.log(`Successfully prepared conversation ${convoId}:`, result);
                         return result;
                     } catch (error) {
@@ -136,20 +180,24 @@ const MessagesPage = () => {
                         return null;
                     }
                 });
+
                 const fetchedConvos = await Promise.all(convoPromises);
-                console.log("Fetched conversations:", fetchedConvos);
+                console.log("All conversation promises resolved:", fetchedConvos);
+                
                 const validConvos = fetchedConvos.filter(c => c !== null);
-                console.log("Valid conversations:", validConvos);
+                console.log("Valid conversations after filtering:", validConvos);
+                
                 setConversations(validConvos);
 
-                if (initialConvoId) {
+                if (initialConvoId !== null && initialConvoId !== undefined) {
+                    console.log(`Setting selected conversation to initial ID: ${initialConvoId}`);
                     setSelectedConvoId(initialConvoId);
                 } else if (validConvos.length > 0) {
+                    console.log(`Setting selected conversation to first available: ${validConvos[0].id}`);
                     setSelectedConvoId(validConvos[0].id);
                 }
             } catch (error) {
-                console.error("Error fetching conversations:", error);
-                setConversations([]);  // Set empty array on error
+                console.error("Error processing conversations:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -161,29 +209,44 @@ const MessagesPage = () => {
     // Load messages for selected conversation
     useEffect(() => {
         const fetchMessages = async () => {
-            if (!selectedConvoId) return;
+            if (selectedConvoId === null || selectedConvoId === undefined) {
+                console.log("No conversation selected, skipping message fetch");
+                return;
+            }
 
             try {
                 setIsLoading(true);
+                console.log(`Fetching messages for conversation ${selectedConvoId}`);
+                
                 const actor = await getActor();
 
                 // Get all messages for the conversation
                 const convoMessages = await actor.getMessagesForConversation(selectedConvoId);
+                console.log(`Retrieved ${convoMessages ? convoMessages.length : 0} messages`);
 
                 if (!convoMessages || convoMessages.length === 0) {
+                    console.log("No messages found for this conversation");
                     setMessages([]);
                     setIsLoading(false);
                     return;
                 }
 
                 // Format messages for display
-                const formattedMessages = convoMessages.map(msg => ({
-                    id: msg.id,
-                    sender: msg.senderId === userId ? 'me' : 'them',
-                    text: msg.content,
-                    timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
-                }));
+                const userIdNum = Number(userId);
+                const formattedMessages = convoMessages.map(msg => {
+                    // Log sender details to debug message ownership
+                    const msgSenderId = Number(msg.senderId);
+                    console.log(`Message ${msg.id} | SenderId: ${msgSenderId} | CurrentUserId: ${userIdNum} | IsSentByMe: ${msgSenderId === userIdNum}`);
+                    
+                    return {
+                        id: msg.id,
+                        sender: msgSenderId === userIdNum ? 'me' : 'them',
+                        text: msg.content,
+                        timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
+                    };
+                });
 
+                console.log("Formatted messages:", formattedMessages);
                 setMessages(formattedMessages);
             } catch (error) {
                 console.error("Error fetching messages:", error);
@@ -195,14 +258,17 @@ const MessagesPage = () => {
         fetchMessages();
     }, [selectedConvoId, userId]);
 
-    // Poll for new messages every 5 seconds
+    // Poll for new messages
     useEffect(() => {
-        if (!selectedConvoId || !userId) return;
+        if (selectedConvoId === null || selectedConvoId === undefined || userId === null || userId === undefined) {
+            return;
+        }
 
+        // Poll for new messages every 5 seconds
         const intervalId = setInterval(async () => {
             try {
                 const actor = await getActor();
-
+                
                 // Get latest messages
                 const convoMessages = await actor.getMessagesForConversation(selectedConvoId);
 
@@ -210,12 +276,16 @@ const MessagesPage = () => {
 
                 // Only update if we have more or different messages
                 if (convoMessages.length > messages.length) {
-                    const formattedMessages = convoMessages.map(msg => ({
-                        id: msg.id,
-                        sender: msg.senderId === userId ? 'me' : 'them',
-                        text: msg.content,
-                        timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
-                    }));
+                    const userIdNum = Number(userId);
+                    const formattedMessages = convoMessages.map(msg => {
+                        const msgSenderId = Number(msg.senderId);
+                        return {
+                            id: msg.id,
+                            sender: msgSenderId === userIdNum ? 'me' : 'them',
+                            text: msg.content,
+                            timestamp: new Date(Number(msg.timestamp) / 1000000).toISOString()
+                        };
+                    });
 
                     setMessages(formattedMessages);
 
@@ -249,11 +319,12 @@ const MessagesPage = () => {
     // Handle sending a new message
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (newMessage.trim() === '' || !selectedConvoId || !userId) return;
+        if (newMessage.trim() === '' || selectedConvoId === null || userId === null) return;
 
         try {
             const actor = await getActor();
-
+            console.log(`Sending message to conversation ${selectedConvoId} as user ${userId}`);
+            
             // Send message to backend
             const messageId = await actor.sendMessage(
                 selectedConvoId,
@@ -262,8 +333,10 @@ const MessagesPage = () => {
             );
 
             if (messageId === 0) {
-                throw new Error("Failed to send message");
+                throw new Error("Failed to send message - backend returned ID 0");
             }
+
+            console.log(`Message sent successfully with ID ${messageId}`);
 
             // Add message to UI
             const newMsg = {
@@ -287,7 +360,7 @@ const MessagesPage = () => {
             alert("Failed to send message. Please try again.");
         }
     };
-
+    
     // Helper function to format timestamp
     const formatTimestamp = (timestamp) => {
         const date = new Date(Number(timestamp) / 1000000);
@@ -379,16 +452,16 @@ const MessagesPage = () => {
 
                 {/* Chat Area */}
                 <div className="chat-area">
-                    {selectedConvoId ? (
+                    {selectedConvoId !== null && selectedConvoId !== undefined ? (
                         <>
                             {/* Chat Header */}
                             <div className="chat-header">
                                 <div className="chat-contact-info">
                                     <img
-                                        src={conversations.find(c => c.id === selectedConvoId)?.avatar}
-                                        alt={conversations.find(c => c.id === selectedConvoId)?.name}
+                                        src={conversations.find(c => c.id === selectedConvoId)?.avatar || 'https://via.placeholder.com/40'}
+                                        alt={conversations.find(c => c.id === selectedConvoId)?.name || 'Contact'}
                                     />
-                                    <h2>{conversations.find(c => c.id === selectedConvoId)?.name}</h2>
+                                    <h2>{conversations.find(c => c.id === selectedConvoId)?.name || 'Unknown Contact'}</h2>
                                 </div>
                             </div>
 

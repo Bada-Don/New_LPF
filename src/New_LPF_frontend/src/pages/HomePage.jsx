@@ -84,46 +84,50 @@ const HomePage = () => {
     const handleContactClick = async (petOwnerId, petId) => {
         // Check if user is logged in
         const userId = localStorage.getItem('userId');
-
-        console.log("User ID:", parseInt(userId), "| Type:", typeof parseInt(userId));
-        console.log("Pet Owner ID:", petOwnerId, "| Type:", typeof petOwnerId);
-
-
+    
         if (!userId) {
             // Redirect to login if not logged in
             navigate('/auth', { state: { redirectTo: '/' } });
             return;
         }
-
+    
         // Don't allow contacting your own post
         if (parseInt(userId) === petOwnerId) {
             alert("This is your own pet post.");
             return;
         }
-
+    
         try {
-            // Start a conversation between current user and pet owner
+            // Start or retrieve a conversation between current user and pet owner
             const result = await New_LPF_backend.startConversation(
                 parseInt(userId),
                 petOwnerId
             );
             
-            // Check if result is successful
             if ('ok' in result) {
                 const convoId = result.ok;
+                console.log(`Conversation created/found with ID: ${convoId}`);
                 
-                // Send an initial message about the pet
-                await New_LPF_backend.sendMessage(
-                    convoId,
-                    parseInt(userId),
-                    `Hello, I'm contacting you about your pet post (ID: ${petId}). I may have information that could help.`
-                );
+                // Check if this is a new conversation by getting its messages
+                const messages = await New_LPF_backend.getMessagesForConversation(convoId);
                 
+                // Only send the initial message if there are no messages yet
+                if (messages.length === 0) {
+                    console.log("New conversation - sending initial message");
+                    // Send an initial message about the pet FROM THE CURRENT USER (userId)
+                    await New_LPF_backend.sendMessage(
+                        convoId,
+                        parseInt(userId), // Ensure the current user is the sender
+                        `Hello, I'm contacting you about your pet post (ID: ${petId}). I may have information that could help.`
+                    );
+                } else {
+                    console.log("Existing conversation - not sending duplicate message");
+                }
+    
                 // Redirect to messages page with conversation ID
                 navigate(`/messages?convoId=${convoId}`);
             } else {
-                // Handle the error case
-                console.error('Error from backend:', result.err);
+                console.error("Error from backend:", result.err);
                 alert(`Failed to start conversation: ${result.err}`);
             }
         } catch (error) {
@@ -131,7 +135,6 @@ const HomePage = () => {
             alert('Failed to start conversation. Please try again.');
         }
     };
-
     // Handle report pet button click
     const handleReportPetClick = () => {
         if (isLoggedIn) {
@@ -233,11 +236,6 @@ const HomePage = () => {
                     <img src="https://media.istockphoto.com/id/1367150296/photo/happy-young-african-american-man-petting-his-dog-outdoors-in-nature.jpg?s=612x612&w=0&k=20&c=HZT5V05AdmWbcUjeoYcJypF_20VYII8vv6iXxb2gJCg=" alt="Happy pet reunion" />
                 </div>
             </section>
-
-            {/* Announcement Banner - similar to Angular's */}
-            <div className="announcement-banner">
-                <p>New feature: Pet facial recognition now available! <span>Learn more about our technology.</span></p>
-            </div>
 
             {/* Pet Listings Section */}
             <section className="pet-listings">
